@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/miekg/pcap"
+	"github.com/alicebob/pcap"
 )
 
 const (

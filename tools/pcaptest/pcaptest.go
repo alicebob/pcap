@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dustin/gopcap"
+	"github.com/alicebob/pcap"
 )
 
 func min(x uint32, y uint32) uint32 {
