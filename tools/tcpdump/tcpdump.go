@@ -24,28 +24,28 @@ var out *bufio.Writer
 var errout *bufio.Writer
 
 func main() {
-	var device *string = flag.String("i", "", "interface")
-	var snaplen *int = flag.Int("s", 65535, "snaplen")
-	var hexdump *bool = flag.Bool("X", false, "hexdump")
-	expr := ""
-
-	out = bufio.NewWriter(os.Stdout)
-	errout = bufio.NewWriter(os.Stderr)
-
+	var (
+		device  = flag.String("i", "", "interface")
+		snaplen = flag.Int("s", 65535, "snaplen")
+		hexdump = flag.Bool("X", false, "hexdump")
+	)
 	flag.Usage = func() {
 		fmt.Fprintf(errout, "usage: %s [ -i interface ] [ -s snaplen ] [ -X ] [ expression ]\n", os.Args[0])
 		os.Exit(1)
 	}
-
 	flag.Parse()
 
+	expr := ""
 	if len(flag.Args()) > 0 {
 		expr = flag.Arg(0)
 	}
 
+	out = bufio.NewWriter(os.Stdout)
+	errout = bufio.NewWriter(os.Stderr)
+
 	if *device == "" {
 		devs, err := pcap.FindAllDevs()
-		if err != "" {
+		if err != nil {
 			fmt.Fprintf(errout, "tcpdump: couldn't find any devices: %s\n", err)
 		}
 		if 0 == len(devs) {

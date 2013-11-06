@@ -245,14 +245,14 @@ func DatalinkValueToDescription(dlt int) string {
 	return ""
 }
 
-func FindAllDevs() (ifs []Interface, err string) {
+func FindAllDevs() ([]Interface, error) {
 	var buf *C.char
 	buf = (*C.char)(C.calloc(ERRBUF_SIZE, 1))
 	defer C.free(unsafe.Pointer(buf))
 	var alldevsp *C.pcap_if_t
 
 	if -1 == C.pcap_findalldevs((**C.pcap_if_t)(&alldevsp), buf) {
-		return nil, C.GoString(buf)
+		return nil, errors.New(C.GoString(buf))
 	}
 	defer C.pcap_freealldevs((*C.pcap_if_t)(alldevsp))
 	dev := alldevsp
@@ -260,7 +260,7 @@ func FindAllDevs() (ifs []Interface, err string) {
 	for i = 0; dev != nil; dev = (*C.pcap_if_t)(dev.next) {
 		i++
 	}
-	ifs = make([]Interface, i)
+	ifs := make([]Interface, i)
 	dev = alldevsp
 	for j := uint32(0); dev != nil; dev = (*C.pcap_if_t)(dev.next) {
 		var iface Interface
@@ -271,7 +271,7 @@ func FindAllDevs() (ifs []Interface, err string) {
 		ifs[j] = iface
 		j++
 	}
-	return
+	return ifs, nil
 }
 
 func findAllAddresses(addresses *_Ctype_struct_pcap_addr) (retval []IFAddress) {

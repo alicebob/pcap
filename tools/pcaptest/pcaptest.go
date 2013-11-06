@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"github.com/alicebob/pcap"
@@ -16,55 +18,59 @@ func min(x uint32, y uint32) uint32 {
 }
 
 func main() {
-	var device *string = flag.String("d", "", "device")
-	var file *string = flag.String("r", "", "file")
-	var expr *string = flag.String("e", "", "filter expression")
-
+	var (
+		device = flag.String("d", "", "device")
+		file   = flag.String("r", "", "file")
+		expr   = flag.String("e", "", "filter expression")
+	)
 	flag.Parse()
-
-	var h *pcap.Pcap
-	var err string
+	log.SetOutput(os.Stdout)
 
 	ifs, err := pcap.FindAllDevs()
-	if len(ifs) == 0 {
-		fmt.Printf("Warning: no devices found : %s\n", err)
-	} else {
-		for i := 0; i < len(ifs); i++ {
-			fmt.Printf("dev %d: %s (%s)\n", i+1, ifs[i].Name, ifs[i].Description)
-		}
+	if err != nil {
+		log.Fatal(err)
+	}
+	for i := range ifs {
+		log.Printf("dev %d: %s (%s)", i+1, ifs[i].Name, ifs[i].Description)
 	}
 
+	var h *pcap.Pcap
 	if *device != "" {
 		h, err = pcap.OpenLive(*device, 65535, true, 0)
-		if h == nil {
-			fmt.Printf("OpenLive(%s) failed: %s\n", *device, err)
-			return
+		if err != nil {
+			log.Fatalf("OpenLive(%s) failed: %s", *device, err)
 		}
 	} else if *file != "" {
 		h, err = pcap.OpenOffline(*file)
-		if h == nil {
-			fmt.Printf("Openoffline(%s) failed: %s\n", *file, err)
-			return
+		if err != nil {
+			log.Fatalf("Openoffline(%s) failed: %s", *file, err)
 		}
 	} else {
-		fmt.Printf("usage: pcaptest [-d <device> | -r <file>]\n")
-		return
+		log.Fatalf("usage: pcaptest [-d <device> | -r <file>]")
 	}
 
-	fmt.Printf("pcap version: %s\n", pcap.Version())
+	log.Printf("pcap version: %s", pcap.Version())
 
 	if *expr != "" {
-		fmt.Printf("Setting filter: %s\n", *expr)
-		err := h.SetFilter(*expr)
-		if err != "" {
-			fmt.Printf("Warning: setting filter failed: %s\n", err)
+		log.Printf("Setting filter: %s", *expr)
+		if err := h.SetFilter(*expr); err != nil {
+			log.Printf("Warning: setting filter failed: %s", err)
 		}
 	}
 
-	for pkt := h.Next(); pkt != nil; pkt = h.Next() {
-		fmt.Printf("time: %d.%06d (%s) caplen: %d len: %d\nData:",
-			int64(pkt.Time.Sec), int64(pkt.Time.Usec),
-			time.Unix(int64(pkt.Time.Sec), 0).String(), int64(pkt.Caplen), int64(pkt.Len))
+	for {
+		pkt := h.Next()
+		if pkt == nil {
+			break
+		}
+		fmt.Printf(
+			"time: %d.%06d (%s) caplen: %d len: %d\nData:",
+			int64(pkt.Time.Second()),
+			int64(pkt.Time.Nanosecond()/1e3),
+			time.Unix(int64(pkt.Time.Second()), 0).String(),
+			int64(pkt.Caplen),
+			int64(pkt.Len),
+		)
 		for i := uint32(0); i < pkt.Caplen; i++ {
 			if i%32 == 0 {
 				fmt.Printf("\n")
@@ -77,5 +83,4 @@ func main() {
 		}
 		fmt.Printf("\n\n")
 	}
-
 }
