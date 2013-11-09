@@ -102,7 +102,7 @@ func (p *Pcap) SetSnapLen(s int32) error {
 	return nil
 }
 
-// Set read timeout (milliseconds) that will be used on a capture handle when it
+// SetReadTimeout (milliseconds) that will be used on a capture handle when it
 // is activated.
 func (p *Pcap) SetReadTimeout(toMs int32) error {
 	if C.pcap_set_timeout(p.cptr, C.int(toMs)) != 0 {
