@@ -1,37 +1,22 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/alicebob/pcap"
 )
 
-const (
-	TYPE_IP  = 0x0800
-	TYPE_ARP = 0x0806
-	TYPE_IP6 = 0x86DD
-
-	IP_ICMP = 1
-	IP_INIP = 4
-	IP_TCP  = 6
-	IP_UDP  = 17
-)
-
-var out *bufio.Writer
-var errout *bufio.Writer
-
 func main() {
 	var (
 		device  = flag.String("i", "", "interface")
 		snaplen = flag.Int("s", 65535, "snaplen")
-		hexdump = flag.Bool("X", false, "hexdump")
+		hex     = flag.Bool("X", false, "hexdump")
 	)
 	flag.Usage = func() {
-		fmt.Fprintf(errout, "usage: %s [ -i interface ] [ -s snaplen ] [ -X ] [ expression ]\n", os.Args[0])
-		os.Exit(1)
+		log.Fatalf("usage: %s [ -i interface ] [ -s snaplen ] [ -X ] [ expression ]\n", os.Args[0])
 	}
 	flag.Parse()
 
@@ -40,15 +25,12 @@ func main() {
 		expr = flag.Arg(0)
 	}
 
-	out = bufio.NewWriter(os.Stdout)
-	errout = bufio.NewWriter(os.Stderr)
-
 	if *device == "" {
 		devs, err := pcap.FindAllDevs()
 		if err != nil {
-			fmt.Fprintf(errout, "tcpdump: couldn't find any devices: %s\n", err)
+			log.Printf("tcpdump: couldn't find any devices: %s", err)
 		}
-		if 0 == len(devs) {
+		if len(devs) == 0 {
 			flag.Usage()
 		}
 		*device = devs[0].Name
@@ -56,26 +38,23 @@ func main() {
 
 	h, err := pcap.OpenLive(*device, int32(*snaplen), true, 1000)
 	if h == nil {
-		fmt.Fprintf(errout, "tcpdump: %s\n", err)
-		errout.Flush()
+		log.Printf("tcpdump: %s", err)
 		return
 	}
 
 	if expr != "" {
 		ferr := h.SetFilter(expr)
 		if ferr != nil {
-			fmt.Fprintf(out, "tcpdump: %s\n", ferr)
-			out.Flush()
+			log.Printf("tcpdump: %s", ferr)
 		}
 	}
 
 	for pkt := h.Next(); pkt != nil; pkt = h.Next() {
 		pkt.Decode()
-		fmt.Fprintf(out, "%s\n", pkt.String())
-		if *hexdump {
-			Hexdump(pkt)
+		fmt.Printf("%s\n", pkt.String())
+		if *hex {
+			hexdump(pkt)
 		}
-		out.Flush()
 	}
 }
 
@@ -86,34 +65,34 @@ func min(a, b int) int {
 	return b
 }
 
-func Hexdump(pkt *pcap.Packet) {
+func hexdump(pkt *pcap.Packet) {
 	for i := 0; i < len(pkt.Data); i += 16 {
-		Dumpline(uint32(i), pkt.Data[i:min(i+16, len(pkt.Data))])
+		dumpline(uint32(i), pkt.Data[i:min(i+16, len(pkt.Data))])
 	}
 }
 
-func Dumpline(addr uint32, line []byte) {
-	fmt.Fprintf(out, "\t0x%04x: ", int32(addr))
+func dumpline(addr uint32, line []byte) {
+	fmt.Printf("\t0x%04x: ", int32(addr))
 	var i uint16
 	for i = 0; i < 16 && i < uint16(len(line)); i++ {
 		if i%2 == 0 {
-			out.WriteString(" ")
+			fmt.Printf(" ")
 		}
-		fmt.Fprintf(out, "%02x", line[i])
+		fmt.Printf("%02x", line[i])
 	}
 	for j := i; j <= 16; j++ {
 		if j%2 == 0 {
-			out.WriteString(" ")
+			fmt.Printf(" ")
 		}
-		out.WriteString("  ")
+		fmt.Printf("  ")
 	}
-	out.WriteString("  ")
+	fmt.Printf("  ")
 	for i = 0; i < 16 && i < uint16(len(line)); i++ {
 		if line[i] >= 32 && line[i] <= 126 {
-			fmt.Fprintf(out, "%c", line[i])
+			fmt.Printf("%c", line[i])
 		} else {
-			out.WriteString(".")
+			fmt.Printf(".")
 		}
 	}
-	out.WriteString("\n")
+	fmt.Printf("\n")
 }

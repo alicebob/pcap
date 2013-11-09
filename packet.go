@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// PacketTime records the Sec + Usec of a packet arrival.
 type PacketTime struct {
 	Sec  int32
 	Usec int32
@@ -39,12 +40,12 @@ func (p *Packet) Decode() {
 	p.Payload = p.Data[14:]
 
 	switch p.Type {
-	case TYPE_IP:
-		p.decodeIp()
-	case TYPE_IP6:
-		p.decodeIp6()
-	case TYPE_ARP:
-		p.decodeArp()
+	case TypeIP:
+		p.decodeIP()
+	case TypeIP6:
+		p.decodeIP6()
+	case TypeARP:
+		p.decodeARP()
 	}
 }
 
@@ -92,7 +93,7 @@ func (p *Packet) String() string {
 	return fmt.Sprintf("%s %s", p.Time, p.headerString(p.Headers))
 }
 
-func (p *Packet) decodeArp() {
+func (p *Packet) decodeARP() {
 	pkt := p.Payload
 	arp := new(Arphdr)
 	arp.Addrtype = binary.BigEndian.Uint16(pkt[0:2])
@@ -109,7 +110,7 @@ func (p *Packet) decodeArp() {
 	p.Payload = p.Payload[8+2*arp.HwAddressSize+2*arp.ProtAddressSize:]
 }
 
-func (p *Packet) decodeIp() {
+func (p *Packet) decodeIP() {
 	if len(p.Payload) < 20 {
 		return
 	}
@@ -120,15 +121,15 @@ func (p *Packet) decodeIp() {
 	ip.Ihl = uint8(pkt[0]) & 0x0F
 	ip.Tos = pkt[1]
 	ip.Length = binary.BigEndian.Uint16(pkt[2:4])
-	ip.Id = binary.BigEndian.Uint16(pkt[4:6])
+	ip.ID = binary.BigEndian.Uint16(pkt[4:6])
 	flagsfrags := binary.BigEndian.Uint16(pkt[6:8])
 	ip.Flags = uint8(flagsfrags >> 13)
 	ip.FragOffset = flagsfrags & 0x1FFF
 	ip.Ttl = pkt[8]
 	ip.Protocol = pkt[9]
 	ip.Checksum = binary.BigEndian.Uint16(pkt[10:12])
-	ip.SrcIp = pkt[12:16]
-	ip.DestIp = pkt[16:20]
+	ip.SrcIP = pkt[12:16]
+	ip.DestIP = pkt[16:20]
 	pEnd := int(ip.Length)
 	if pEnd > len(pkt) {
 		pEnd = len(pkt)
@@ -141,18 +142,18 @@ func (p *Packet) decodeIp() {
 	p.Headers = append(p.Headers, ip)
 
 	switch ip.Protocol {
-	case IP_TCP:
-		p.decodeTcp()
-	case IP_UDP:
-		p.decodeUdp()
-	case IP_ICMP:
-		p.decodeIcmp()
-	case IP_INIP:
-		p.decodeIp()
+	case IPTCP:
+		p.decodeTCP()
+	case IPUDP:
+		p.decodeUDP()
+	case IPICMP:
+		p.decodeICMP()
+	case IPInIP:
+		p.decodeIP()
 	}
 }
 
-func (p *Packet) decodeTcp() {
+func (p *Packet) decodeTCP() {
 	pLenPayload := len(p.Payload)
 	if pLenPayload < 20 {
 		return
@@ -176,7 +177,7 @@ func (p *Packet) decodeTcp() {
 	p.Headers = append(p.Headers, tcp)
 }
 
-func (p *Packet) decodeUdp() {
+func (p *Packet) decodeUDP() {
 	if len(p.Payload) < 8 {
 		return
 	}
@@ -190,47 +191,47 @@ func (p *Packet) decodeUdp() {
 	p.Payload = pkt[8:]
 }
 
-func (p *Packet) decodeIcmp() *Icmphdr {
+func (p *Packet) decodeICMP() *ICMPHdr {
 	if len(p.Payload) < 8 {
 		return nil
 	}
 	pkt := p.Payload
-	icmp := new(Icmphdr)
+	icmp := new(ICMPHdr)
 	icmp.Type = pkt[0]
 	icmp.Code = pkt[1]
 	icmp.Checksum = binary.BigEndian.Uint16(pkt[2:4])
-	icmp.Id = binary.BigEndian.Uint16(pkt[4:6])
+	icmp.ID = binary.BigEndian.Uint16(pkt[4:6])
 	icmp.Seq = binary.BigEndian.Uint16(pkt[6:8])
 	p.Payload = pkt[8:]
 	p.Headers = append(p.Headers, icmp)
 	return icmp
 }
 
-func (p *Packet) decodeIp6() {
+func (p *Packet) decodeIP6() {
 	if len(p.Payload) < 40 {
 		return
 	}
 	pkt := p.Payload
-	ip6 := new(Ip6hdr)
+	ip6 := new(IP6Hdr)
 	ip6.Version = uint8(pkt[0]) >> 4
 	ip6.TrafficClass = uint8((binary.BigEndian.Uint16(pkt[0:2]) >> 4) & 0x00FF)
 	ip6.FlowLabel = binary.BigEndian.Uint32(pkt[0:4]) & 0x000FFFFF
 	ip6.Length = binary.BigEndian.Uint16(pkt[4:6])
 	ip6.NextHeader = pkt[6]
 	ip6.HopLimit = pkt[7]
-	ip6.SrcIp = pkt[8:24]
-	ip6.DestIp = pkt[24:40]
+	ip6.SrcIP = pkt[8:24]
+	ip6.DestIP = pkt[24:40]
 	p.Payload = pkt[40:]
 	p.Headers = append(p.Headers, ip6)
 
 	switch ip6.NextHeader {
-	case IP_TCP:
-		p.decodeTcp()
-	case IP_UDP:
-		p.decodeUdp()
-	case IP_ICMP:
-		p.decodeIcmp()
-	case IP_INIP:
-		p.decodeIp()
+	case IPTCP:
+		p.decodeTCP()
+	case IPUDP:
+		p.decodeUDP()
+	case IPICMP:
+		p.decodeICMP()
+	case IPInIP:
+		p.decodeIP()
 	}
 }

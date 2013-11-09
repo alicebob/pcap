@@ -6,79 +6,79 @@ import (
 	"strings"
 )
 
+// Type constants.
 const (
-	TYPE_IP  = 0x0800
-	TYPE_ARP = 0x0806
-	TYPE_IP6 = 0x86DD
+	TypeIP  = 0x0800
+	TypeARP = 0x0806
+	TypeIP6 = 0x86DD
 
-	IP_ICMP = 1
-	IP_INIP = 4
-	IP_TCP  = 6
-	IP_UDP  = 17
+	IPICMP = 1
+	IPInIP = 4
+	IPTCP  = 6
+	IPUDP  = 17
 )
 
 // Port from sf-pcap.c file.
 const (
-	TCPDUMP_MAGIC           = 0xa1b2c3d4
-	KUZNETZOV_TCPDUMP_MAGIC = 0xa1b2cd34
-	FMESQUITA_TCPDUMP_MAGIC = 0xa1b234cd
-	NAVTEL_TCPDUMP_MAGIC    = 0xa12b3c4d
-	NSEC_TCPDUMP_MAGIC      = 0xa1b23c4d
+	TcpdumpMagic          = 0xa1b2c3d4
+	KuznetsovTcpdumpMagic = 0xa1b2cd34
+	FmesqiutaTcpdumpMagic = 0xa1b234cd
+	NavtelTcpdumpMagic    = 0xa12b3c4d
+	NsecTcpdumpMagic      = 0xa1b23c4d
 )
 
-// DLT,
-// these are the types that are the same on all platforms, and that
-// have been defined by <net/bpf.h> for ages.
+// DLT* are the types that are the same on all platforms, and that have been
+// defined by <net/bpf.h> for ages.
 const (
-	DLT_NULL    = 0  // BSD loopback encapsulation
-	DLT_EN10MB  = 1  // Ethernet (10Mb)
-	DLT_EN3MB   = 2  // Experimental Ethernet (3Mb)
-	DLT_AX25    = 3  // Amateur Radio AX.25
-	DLT_PRONET  = 4  // Proteon ProNET Token Ring
-	DLT_CHAOS   = 5  // Chaos
-	DLT_IEEE802 = 6  // 802.5 Token Ring
-	DLT_ARCNET  = 7  // ARCNET, with BSD-style header
-	DLT_SLIP    = 8  // Serial Line IP
-	DLT_PPP     = 9  // Point-to-point Protocol
-	DLT_FDDI    = 10 // FDDI
+	DLTNULL    = 0  // BSD loopback encapsulation
+	DLTEN10MB  = 1  // Ethernet (10Mb)
+	DLTEN3MB   = 2  // Experimental Ethernet (3Mb)
+	DLTAX25    = 3  // Amateur Radio AX.25
+	DLTPRONET  = 4  // Proteon ProNET Token Ring
+	DLTCHAOS   = 5  // Chaos
+	DLTIEEE802 = 6  // 802.5 Token Ring
+	DLTARCNET  = 7  // ARCNET, with BSD-style header
+	DLTSLIP    = 8  // Serial Line IP
+	DLTPPP     = 9  // Point-to-point Protocol
+	DLTFDDI    = 10 // FDDI
 )
 
+const errbufSize = 256
+
+// LinkType constants according to pcap-linktype(7).
 const (
-	ERRBUF_SIZE = 256
+	LinkTypeNull      = DLTNULL
+	LinkTypeEthernet  = DLTEN10MB
+	LinkTypeTokenRing = DLTIEEE802
 
-	// According to pcap-linktype(7).
-	LINKTYPE_NULL       = DLT_NULL
-	LINKTYPE_ETHERNET   = DLT_EN10MB
-	LINKTYPE_TOKEN_RING = DLT_IEEE802
+	LinkTypeExpEthernet = DLTEN3MB /* 3Mb experimental Ethernet */
+	LinkTypeAX25        = DLTAX25
+	LinkTypePRONET      = DLTPRONET
+	LinkTypeCHAOS       = DLTCHAOS
+	LinkTypeARCNETBSD   = DLTARCNET /* BSD-style headers */
+	LinkTypeSLIP        = DLTSLIP
+	LinkTypePPP         = DLTPPP
+	LinkTypeFDDI        = DLTFDDI
 
-	LINKTYPE_EXP_ETHERNET = DLT_EN3MB /* 3Mb experimental Ethernet */
-	LINKTYPE_AX25         = DLT_AX25
-	LINKTYPE_PRONET       = DLT_PRONET
-	LINKTYPE_CHAOS        = DLT_CHAOS
-	LINKTYPE_ARCNET_BSD   = DLT_ARCNET /* BSD-style headers */
-	LINKTYPE_SLIP         = DLT_SLIP
-	LINKTYPE_PPP          = DLT_PPP
-	LINKTYPE_FDDI         = DLT_FDDI
-
-	LINKTYPE_ARCNET           = 7
-	LINKTYPE_ATM_RFC1483      = 100
-	LINKTYPE_RAW              = 101
-	LINKTYPE_PPP_HDLC         = 50
-	LINKTYPE_PPP_ETHER        = 51
-	LINKTYPE_C_HDLC           = 104
-	LINKTYPE_IEEE802_11       = 105
-	LINKTYPE_FRELAY           = 107
-	LINKTYPE_LOOP             = 108
-	LINKTYPE_LINUX_SLL        = 113
-	LINKTYPE_LTALK            = 104
-	LINKTYPE_PFLOG            = 117
-	LINKTYPE_PRISM_HEADER     = 119
-	LINKTYPE_IP_OVER_FC       = 122
-	LINKTYPE_SUNATM           = 123
-	LINKTYPE_IEEE802_11_RADIO = 127
-	LINKTYPE_ARCNET_LINUX     = 129
-	LINKTYPE_LINUX_IRDA       = 144
-	LINKTYPE_LINUX_LAPD       = 177
+	LinkTypeARCNET         = 7
+	LinkTypeATMRFC1483     = 100
+	LinkTypeRAW            = 101
+	LinkTypePPPHDLC        = 50
+	LinkTypePPPETHER       = 51
+	LinkTypeCHDLC          = 104
+	LinkTypeIEEE80211      = 105
+	LinkTypeFRELAY         = 107
+	LinkTypeLOOP           = 108
+	LinkTypeLINUXSLL       = 113
+	LinkTypeLTALK          = 104
+	LinkTypePFLOG          = 117
+	LinkTypePRISMHeader    = 119
+	LINKTypeIPOverFC       = 122
+	LinkTypeSUNATM         = 123
+	LinkTypeIEEE80211Radio = 127
+	LinkTypeARCNETLinux    = 129
+	LinkTypeLinuxIRDA      = 144
+	LinkTypeLinuxLAPD      = 177
 )
 
 type addrHdr interface {
@@ -93,7 +93,7 @@ type addrStringer interface {
 
 func decodemac(pkt []byte) uint64 {
 	mac := uint64(0)
-	for i := uint(0); i < 6; i++ {
+	for i := 0; i < 6; i++ {
 		mac = (mac << 8) + uint64(pkt[i])
 	}
 	return mac
@@ -119,7 +119,7 @@ func (arp *Arphdr) String() (s string) {
 	case 2:
 		s = "ARP Reply"
 	}
-	if arp.Addrtype == LINKTYPE_ETHERNET && arp.Protocol == TYPE_IP {
+	if arp.Addrtype == LinkTypeEthernet && arp.Protocol == TypeIP {
 		s = fmt.Sprintf("%012x (%s) > %012x (%s)",
 			decodemac(arp.SourceHwAddress), arp.SourceProtAddress,
 			decodemac(arp.DestHwAddress), arp.DestProtAddress)
@@ -129,26 +129,32 @@ func (arp *Arphdr) String() (s string) {
 	return
 }
 
-// IPhdr is the header of an IP packet.
+// Iphdr is the header of an IP packet.
 type Iphdr struct {
 	Version    uint8
 	Ihl        uint8
 	Tos        uint8
 	Length     uint16
-	Id         uint16
+	ID         uint16
 	Flags      uint8
 	FragOffset uint16
 	Ttl        uint8
 	Protocol   uint8
 	Checksum   uint16
-	SrcIp      []byte
-	DestIp     []byte
+	SrcIP      []byte
+	DestIP     []byte
 }
 
-func (ip *Iphdr) SrcAddr() string  { return net.IP(ip.SrcIp).String() }
-func (ip *Iphdr) DestAddr() string { return net.IP(ip.DestIp).String() }
-func (ip *Iphdr) Len() int         { return int(ip.Length) }
+// SrcAddr returns the string version of the source IP.
+func (ip *Iphdr) SrcAddr() string { return net.IP(ip.SrcIP).String() }
 
+// DestAddr returns the string version of the destination IP.
+func (ip *Iphdr) DestAddr() string { return net.IP(ip.DestIP).String() }
+
+// Len returns the ip.Length.
+func (ip *Iphdr) Len() int { return int(ip.Length) }
+
+// Tcphdr is the header of a TCP packet.
 type Tcphdr struct {
 	SrcPort    uint16
 	DestPort   uint16
@@ -162,56 +168,60 @@ type Tcphdr struct {
 	Data       []byte
 }
 
+// TCP flags.
 const (
-	TCP_FIN = 1 << iota
-	TCP_SYN
-	TCP_RST
-	TCP_PSH
-	TCP_ACK
-	TCP_URG
-	TCP_ECE
-	TCP_CWR
-	TCP_NS
+	TCPFIN = 1 << iota
+	TCPSYN
+	TCPRST
+	TCPPSH
+	TCPACK
+	TCPURG
+	TCPECE
+	TCPCWR
+	TCPNS
 )
 
+// String TODO
 func (tcp *Tcphdr) String(hdr addrHdr) string {
 	return fmt.Sprintf("TCP %s:%d > %s:%d %s SEQ=%d ACK=%d LEN=%d",
 		hdr.SrcAddr(), int(tcp.SrcPort), hdr.DestAddr(), int(tcp.DestPort),
 		tcp.FlagsString(), int64(tcp.Seq), int64(tcp.Ack), hdr.Len())
 }
 
+// FlagsString TODO
 func (tcp *Tcphdr) FlagsString() string {
 	var sflags []string
-	if 0 != (tcp.Flags & TCP_SYN) {
+	if 0 != (tcp.Flags & TCPSYN) {
 		sflags = append(sflags, "syn")
 	}
-	if 0 != (tcp.Flags & TCP_FIN) {
+	if 0 != (tcp.Flags & TCPFIN) {
 		sflags = append(sflags, "fin")
 	}
-	if 0 != (tcp.Flags & TCP_ACK) {
+	if 0 != (tcp.Flags & TCPACK) {
 		sflags = append(sflags, "ack")
 	}
-	if 0 != (tcp.Flags & TCP_PSH) {
+	if 0 != (tcp.Flags & TCPPSH) {
 		sflags = append(sflags, "psh")
 	}
-	if 0 != (tcp.Flags & TCP_RST) {
+	if 0 != (tcp.Flags & TCPRST) {
 		sflags = append(sflags, "rst")
 	}
-	if 0 != (tcp.Flags & TCP_URG) {
+	if 0 != (tcp.Flags & TCPURG) {
 		sflags = append(sflags, "urg")
 	}
-	if 0 != (tcp.Flags & TCP_NS) {
+	if 0 != (tcp.Flags & TCPNS) {
 		sflags = append(sflags, "ns")
 	}
-	if 0 != (tcp.Flags & TCP_CWR) {
+	if 0 != (tcp.Flags & TCPCWR) {
 		sflags = append(sflags, "cwr")
 	}
-	if 0 != (tcp.Flags & TCP_ECE) {
+	if 0 != (tcp.Flags & TCPECE) {
 		sflags = append(sflags, "ece")
 	}
 	return fmt.Sprintf("[%s]", strings.Join(sflags, " "))
 }
 
+// Udphdr is the header of a UDP packet.
 type Udphdr struct {
 	SrcPort  uint16
 	DestPort uint16
@@ -225,21 +235,24 @@ func (udp *Udphdr) String(hdr addrHdr) string {
 		int(udp.Length), int(udp.Checksum))
 }
 
-type Icmphdr struct {
+// ICMPHdr is the header of an ICMP packet.
+type ICMPHdr struct {
 	Type     uint8
 	Code     uint8
 	Checksum uint16
-	Id       uint16
+	ID       uint16
 	Seq      uint16
 	Data     []byte
 }
 
-func (icmp *Icmphdr) String(hdr addrHdr) string {
+// String TODO
+func (icmp *ICMPHdr) String(hdr addrHdr) string {
 	return fmt.Sprintf("ICMP %s > %s Type = %d Code = %d ",
 		hdr.SrcAddr(), hdr.DestAddr(), icmp.Type, icmp.Code)
 }
 
-func (icmp *Icmphdr) TypeString() (result string) {
+// TypeString TODO
+func (icmp *ICMPHdr) TypeString() (result string) {
 	switch icmp.Type {
 	case 0:
 		result = fmt.Sprintf("Echo reply seq=%d", icmp.Seq)
@@ -264,7 +277,8 @@ func (icmp *Icmphdr) TypeString() (result string) {
 	return
 }
 
-type Ip6hdr struct {
+// IP6Hdr is the header of an IPv6 packet.
+type IP6Hdr struct {
 	// http://www.networksorcery.com/enp/protocol/ipv6.htm
 	Version      uint8  // 4 bits
 	TrafficClass uint8  // 8 bits
@@ -272,10 +286,15 @@ type Ip6hdr struct {
 	Length       uint16 // 16 bits
 	NextHeader   uint8  // 8 bits, same as Protocol in Iphdr
 	HopLimit     uint8  // 8 bits
-	SrcIp        []byte // 16 bytes
-	DestIp       []byte // 16 bytes
+	SrcIP        []byte // 16 bytes
+	DestIP       []byte // 16 bytes
 }
 
-func (ip6 *Ip6hdr) SrcAddr() string  { return net.IP(ip6.SrcIp).String() }
-func (ip6 *Ip6hdr) DestAddr() string { return net.IP(ip6.DestIp).String() }
-func (ip6 *Ip6hdr) Len() int         { return int(ip6.Length) }
+// SrcAddr returns the string version of the source IP.
+func (ip6 *IP6Hdr) SrcAddr() string { return net.IP(ip6.SrcIP).String() }
+
+// DestAddr returns the string version of the destination IP.
+func (ip6 *IP6Hdr) DestAddr() string { return net.IP(ip6.DestIP).String() }
+
+// Len returns the ip6.Length.
+func (ip6 *IP6Hdr) Len() int { return int(ip6.Length) }

@@ -24,18 +24,21 @@ import (
 	"unsafe"
 )
 
+// Pcap wraps a pcap_t struct.
 type Pcap struct {
 	cptr *C.pcap_t
 }
 
 type pcapError struct{ string }
 
+// Stat records statistics about packets received and dropped.
 type Stat struct {
 	PacketsReceived  uint32
 	PacketsDropped   uint32
 	PacketsIfDropped uint32
 }
 
+// Interface describes a single network interface on a host.
 type Interface struct {
 	Name        string
 	Description string
@@ -43,16 +46,25 @@ type Interface struct {
 	// TODO: add more elements
 }
 
+// IFAddress is the interface address.
 type IFAddress struct {
 	IP      net.IP
 	Netmask net.IPMask
 	// TODO: add broadcast + PtP dst ?
 }
 
-func Version() string               { return C.GoString(C.pcap_lib_version()) }
-func (p *Pcap) Datalink() int       { return int(C.pcap_datalink(p.cptr)) }
-func (e *pcapError) Error() string  { return e.string }
-func (p *Pcap) Geterror() error     { return &pcapError{C.GoString(C.pcap_geterr(p.cptr))} }
+// Version returns the current pcap library version.
+func Version() string { return C.GoString(C.pcap_lib_version()) }
+
+// Datalink TODO
+func (p *Pcap) Datalink() int { return int(C.pcap_datalink(p.cptr)) }
+
+func (e *pcapError) Error() string { return e.string }
+
+// Geterror converts the last pcap error to a Go error.
+func (p *Pcap) Geterror() error { return &pcapError{C.GoString(C.pcap_geterr(p.cptr))} }
+
+// Next wraps libpcap NextEx
 func (p *Pcap) Next() (pkt *Packet) { rv, _ := p.NextEx(); return rv }
 
 // Create TODO
@@ -60,7 +72,7 @@ func Create(device string) (*Pcap, error) {
 	dev := C.CString(device)
 	defer C.free(unsafe.Pointer(dev))
 
-	buf := (*C.char)(C.calloc(ERRBUF_SIZE, 1))
+	buf := (*C.char)(C.calloc(errbufSize, 1))
 	defer C.free(unsafe.Pointer(buf))
 
 	cptr := C.pcap_create(dev, buf)
@@ -95,6 +107,7 @@ func (p *Pcap) SetPromisc(promisc bool) error {
 	return nil
 }
 
+// SetSnapLen TODO
 func (p *Pcap) SetSnapLen(s int32) error {
 	if C.pcap_set_snaplen(p.cptr, C.int(s)) != 0 {
 		return p.Geterror()
@@ -121,8 +134,8 @@ func (p *Pcap) Activate() error {
 }
 
 // OpenLive opens a device and returns a handler.
-func OpenLive(device string, snaplen int32, promisc bool, timeout_ms int32) (*Pcap, error) {
-	buf := (*C.char)(C.calloc(ERRBUF_SIZE, 1))
+func OpenLive(device string, snaplen int32, promisc bool, timeoutMS int32) (*Pcap, error) {
+	buf := (*C.char)(C.calloc(errbufSize, 1))
 	defer C.free(unsafe.Pointer(buf))
 
 	dev := C.CString(device)
@@ -133,7 +146,7 @@ func OpenLive(device string, snaplen int32, promisc bool, timeout_ms int32) (*Pc
 		pro = 1
 	}
 
-	cptr := C.pcap_open_live(dev, C.int(snaplen), C.int(pro), C.int(timeout_ms), buf)
+	cptr := C.pcap_open_live(dev, C.int(snaplen), C.int(pro), C.int(timeoutMS), buf)
 	if cptr == nil {
 		return nil, &pcapError{C.GoString(buf)}
 	}
@@ -145,7 +158,7 @@ func OpenLive(device string, snaplen int32, promisc bool, timeout_ms int32) (*Pc
 
 // OpenOffline provides a Pcap over a .pcap file.
 func OpenOffline(file string) (*Pcap, error) {
-	buf := (*C.char)(C.calloc(ERRBUF_SIZE, 1))
+	buf := (*C.char)(C.calloc(errbufSize, 1))
 	defer C.free(unsafe.Pointer(buf))
 
 	cf := C.CString(file)
@@ -161,11 +174,12 @@ func OpenOffline(file string) (*Pcap, error) {
 	}, nil
 }
 
-// Pcap closes a handler.
+// Close calls pcap_close on the underlying pcap_t.
 func (p *Pcap) Close() {
 	C.pcap_close(p.cptr)
 }
 
+// NextEx gets the next packet on the handle.
 func (p *Pcap) NextEx() (*Packet, int32) {
 	var pkthdr *C.struct_pcap_pkthdr
 	var bufPtr *C.u_char
@@ -187,6 +201,7 @@ func (p *Pcap) NextEx() (*Packet, int32) {
 	return pkt, result
 }
 
+// Getstats TODO
 func (p *Pcap) Getstats() (*Stat, error) {
 	var cstats _Ctype_struct_pcap_stat
 	if C.pcap_stats(p.cptr, &cstats) == -1 {
@@ -200,6 +215,7 @@ func (p *Pcap) Getstats() (*Stat, error) {
 	}, nil
 }
 
+// SetFilter TODO
 func (p *Pcap) SetFilter(expr string) error {
 	var bpf _Ctype_struct_bpf_program
 	cexpr := C.CString(expr)
@@ -216,13 +232,15 @@ func (p *Pcap) SetFilter(expr string) error {
 	return nil
 }
 
-func (p *Pcap) SetDataLink(dlt int) error {
+// SetDatalink TODO
+func (p *Pcap) SetDatalink(dlt int) error {
 	if -1 == C.pcap_set_datalink(p.cptr, C.int(dlt)) {
 		return p.Geterror()
 	}
 	return nil
 }
 
+// DatalinkValueToName string
 func DatalinkValueToName(dlt int) string {
 	if name := C.pcap_datalink_val_to_name(C.int(dlt)); name != nil {
 		return C.GoString(name)
@@ -230,6 +248,7 @@ func DatalinkValueToName(dlt int) string {
 	return ""
 }
 
+// DatalinkValueToDescription TODO
 func DatalinkValueToDescription(dlt int) string {
 	if desc := C.pcap_datalink_val_to_description(C.int(dlt)); desc != nil {
 		return C.GoString(desc)
@@ -237,8 +256,9 @@ func DatalinkValueToDescription(dlt int) string {
 	return ""
 }
 
+// FindAllDevs TODO
 func FindAllDevs() ([]Interface, error) {
-	buf := (*C.char)(C.calloc(ERRBUF_SIZE, 1))
+	buf := (*C.char)(C.calloc(errbufSize, 1))
 	defer C.free(unsafe.Pointer(buf))
 
 	var alldevsp *C.pcap_if_t

@@ -12,11 +12,7 @@ import (
 	"github.com/alicebob/pcap"
 )
 
-var input *string = flag.String("input", "", "input file")
-var output *string = flag.String("output", "", "output file")
-var decode *bool = flag.Bool("decode", false, "print decoded packets")
-
-func copyPcap(dest, src string) {
+func copyPcap(dest, src string, decode bool) {
 	f, err := os.Open(src)
 	if err != nil {
 		fmt.Printf("couldn't open %q: %v\n", src, err)
@@ -45,7 +41,7 @@ func copyPcap(dest, src string) {
 		if pkt == nil {
 			break
 		}
-		if *decode {
+		if decode {
 			pkt.Decode()
 			fmt.Println(pkt.String())
 		}
@@ -89,8 +85,13 @@ func check(dest, src string) {
 }
 
 func main() {
+	var (
+		input  = flag.String("input", "", "input file")
+		output = flag.String("output", "", "output file")
+		decode = flag.Bool("decode", false, "print decoded packets")
+	)
 	flag.Parse()
 
-	copyPcap(*output, *input)
+	copyPcap(*output, *input, *decode)
 	check(*output, *input)
 }
