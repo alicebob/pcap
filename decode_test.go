@@ -57,7 +57,7 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 		t.Error("Incorrect number of headers", len(p.Headers))
 		return
 	}
-	if ip, ipOk := p.Headers[0].(*Iphdr); ipOk {
+	if ip, ipOk := p.Headers[0].(*IPHdr); ipOk {
 		if ip.Version != 4 {
 			t.Error("ip Version", ip.Version)
 		}
@@ -94,7 +94,7 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 		if !bytes.Equal(ip.DestIP, []byte{173, 222, 254, 225}) {
 			t.Error("ip Dest", ip.DestIP)
 		}
-		if tcp, tcpOk := p.Headers[1].(*Tcphdr); tcpOk {
+		if tcp, tcpOk := p.Headers[1].(*TCPHdr); tcpOk {
 			if tcp.SrcPort != 50679 {
 				t.Error("tcp srcport", tcp.SrcPort)
 			}

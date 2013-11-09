@@ -33,7 +33,6 @@ type Packet struct {
 
 // Decode decodes the headers of a Packet.
 func (p *Packet) Decode() {
-
 	p.Type = int(binary.BigEndian.Uint16(p.Data[12:14]))
 	p.DestMac = decodemac(p.Data[0:6])
 	p.SrcMac = decodemac(p.Data[6:12])
@@ -95,7 +94,7 @@ func (p *Packet) String() string {
 
 func (p *Packet) decodeARP() {
 	pkt := p.Payload
-	arp := new(Arphdr)
+	arp := new(ARPHdr)
 	arp.Addrtype = binary.BigEndian.Uint16(pkt[0:2])
 	arp.Protocol = binary.BigEndian.Uint16(pkt[2:4])
 	arp.HwAddressSize = pkt[4]
@@ -115,7 +114,7 @@ func (p *Packet) decodeIP() {
 		return
 	}
 	pkt := p.Payload
-	ip := new(Iphdr)
+	ip := new(IPHdr)
 
 	ip.Version = uint8(pkt[0]) >> 4
 	ip.Ihl = uint8(pkt[0]) & 0x0F
@@ -159,7 +158,7 @@ func (p *Packet) decodeTCP() {
 		return
 	}
 	pkt := p.Payload
-	tcp := new(Tcphdr)
+	tcp := new(TCPHdr)
 	tcp.SrcPort = binary.BigEndian.Uint16(pkt[0:2])
 	tcp.DestPort = binary.BigEndian.Uint16(pkt[2:4])
 	tcp.Seq = binary.BigEndian.Uint32(pkt[4:8])
@@ -182,7 +181,7 @@ func (p *Packet) decodeUDP() {
 		return
 	}
 	pkt := p.Payload
-	udp := new(Udphdr)
+	udp := new(UDPHdr)
 	udp.SrcPort = binary.BigEndian.Uint16(pkt[0:2])
 	udp.DestPort = binary.BigEndian.Uint16(pkt[2:4])
 	udp.Length = binary.BigEndian.Uint16(pkt[4:6])

@@ -99,8 +99,8 @@ func decodemac(pkt []byte) uint64 {
 	return mac
 }
 
-// Arphdr is a ARP packet header.
-type Arphdr struct {
+// ARPHdr is a ARP packet header.
+type ARPHdr struct {
 	Addrtype          uint16
 	Protocol          uint16
 	HwAddressSize     uint8
@@ -112,7 +112,7 @@ type Arphdr struct {
 	DestProtAddress   []byte
 }
 
-func (arp *Arphdr) String() (s string) {
+func (arp *ARPHdr) String() (s string) {
 	switch arp.Operation {
 	case 1:
 		s = "ARP request"
@@ -129,8 +129,8 @@ func (arp *Arphdr) String() (s string) {
 	return
 }
 
-// Iphdr is the header of an IP packet.
-type Iphdr struct {
+// IPHdr is the header of an IP packet.
+type IPHdr struct {
 	Version    uint8
 	Ihl        uint8
 	Tos        uint8
@@ -146,16 +146,16 @@ type Iphdr struct {
 }
 
 // SrcAddr returns the string version of the source IP.
-func (ip *Iphdr) SrcAddr() string { return net.IP(ip.SrcIP).String() }
+func (ip *IPHdr) SrcAddr() string { return net.IP(ip.SrcIP).String() }
 
 // DestAddr returns the string version of the destination IP.
-func (ip *Iphdr) DestAddr() string { return net.IP(ip.DestIP).String() }
+func (ip *IPHdr) DestAddr() string { return net.IP(ip.DestIP).String() }
 
 // Len returns the ip.Length.
-func (ip *Iphdr) Len() int { return int(ip.Length) }
+func (ip *IPHdr) Len() int { return int(ip.Length) }
 
-// Tcphdr is the header of a TCP packet.
-type Tcphdr struct {
+// TCPHdr is the header of a TCP packet.
+type TCPHdr struct {
 	SrcPort    uint16
 	DestPort   uint16
 	Seq        uint32
@@ -182,14 +182,14 @@ const (
 )
 
 // String TODO
-func (tcp *Tcphdr) String(hdr addrHdr) string {
+func (tcp *TCPHdr) String(hdr addrHdr) string {
 	return fmt.Sprintf("TCP %s:%d > %s:%d %s SEQ=%d ACK=%d LEN=%d",
 		hdr.SrcAddr(), int(tcp.SrcPort), hdr.DestAddr(), int(tcp.DestPort),
 		tcp.FlagsString(), int64(tcp.Seq), int64(tcp.Ack), hdr.Len())
 }
 
 // FlagsString TODO
-func (tcp *Tcphdr) FlagsString() string {
+func (tcp *TCPHdr) FlagsString() string {
 	var sflags []string
 	if 0 != (tcp.Flags & TCPSYN) {
 		sflags = append(sflags, "syn")
@@ -221,15 +221,15 @@ func (tcp *Tcphdr) FlagsString() string {
 	return fmt.Sprintf("[%s]", strings.Join(sflags, " "))
 }
 
-// Udphdr is the header of a UDP packet.
-type Udphdr struct {
+// UDPHdr is the header of a UDP packet.
+type UDPHdr struct {
 	SrcPort  uint16
 	DestPort uint16
 	Length   uint16
 	Checksum uint16
 }
 
-func (udp *Udphdr) String(hdr addrHdr) string {
+func (udp *UDPHdr) String(hdr addrHdr) string {
 	return fmt.Sprintf("UDP %s:%d > %s:%d LEN=%d CHKSUM=%d",
 		hdr.SrcAddr(), int(udp.SrcPort), hdr.DestAddr(), int(udp.DestPort),
 		int(udp.Length), int(udp.Checksum))
@@ -284,7 +284,7 @@ type IP6Hdr struct {
 	TrafficClass uint8  // 8 bits
 	FlowLabel    uint32 // 20 bits
 	Length       uint16 // 16 bits
-	NextHeader   uint8  // 8 bits, same as Protocol in Iphdr
+	NextHeader   uint8  // 8 bits, same as Protocol in IPHdr
 	HopLimit     uint8  // 8 bits
 	SrcIP        []byte // 16 bytes
 	DestIP       []byte // 16 bytes
