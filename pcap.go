@@ -55,6 +55,7 @@ func (e *pcapError) Error() string  { return e.string }
 func (p *Pcap) Geterror() error     { return &pcapError{C.GoString(C.pcap_geterr(p.cptr))} }
 func (p *Pcap) Next() (pkt *Packet) { rv, _ := p.NextEx(); return rv }
 
+// Create TODO
 func Create(device string) (*Pcap, error) {
 	dev := C.CString(device)
 	defer C.free(unsafe.Pointer(dev))
@@ -72,7 +73,7 @@ func Create(device string) (*Pcap, error) {
 	}, nil
 }
 
-// Set buffer size (units in bytes) on activated handle.
+// SetBufferSize sets buffer size (in bytes) on the activated handle.
 func (p *Pcap) SetBufferSize(sz int32) error {
 	if C.pcap_set_buffer_size(p.cptr, C.int(sz)) != 0 {
 		return p.Geterror()
@@ -80,8 +81,8 @@ func (p *Pcap) SetBufferSize(sz int32) error {
 	return nil
 }
 
-// If arg p is non-zero promiscuous mode will be set on capture handle when it
-// is activated.
+// SetPromisc sets promiscuous mode on the handle. It should be called before
+// activation.
 func (p *Pcap) SetPromisc(promisc bool) error {
 	pro := int32(0)
 	if promisc {
