@@ -17,6 +17,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"syscall"
 	"time"
@@ -54,24 +55,21 @@ func (e *pcapError) Error() string  { return e.string }
 func (p *Pcap) Geterror() error     { return &pcapError{C.GoString(C.pcap_geterr(p.cptr))} }
 func (p *Pcap) Next() (pkt *Packet) { rv, _ := p.NextEx(); return rv }
 
-func Create(device string) (handle *Pcap, err error) {
-	var buf *C.char
-	buf = (*C.char)(C.calloc(ERRBUF_SIZE, 1))
-	h := new(Pcap)
-
+func Create(device string) (*Pcap, error) {
 	dev := C.CString(device)
 	defer C.free(unsafe.Pointer(dev))
 
-	h.cptr = C.pcap_create(dev, buf)
-	if nil == h.cptr {
-		handle = nil
-		err = &pcapError{C.GoString(buf)}
-	} else {
-		handle = h
+	buf := (*C.char)(C.calloc(ERRBUF_SIZE, 1))
+	defer C.free(unsafe.Pointer(buf))
+
+	cptr := C.pcap_create(dev, buf)
+	if cptr == nil {
+		return nil, &pcapError{C.GoString(buf)}
 	}
 
-	C.free(unsafe.Pointer(buf))
-	return
+	return &Pcap{
+		cptr: cptr,
+	}, nil
 }
 
 // Set buffer size (units in bytes) on activated handle.
@@ -82,9 +80,10 @@ func (p *Pcap) SetBufferSize(sz int32) error {
 	return nil
 }
 
-//  If arg p is non-zero promiscuous mode will be set on capture handle when it is activated.
+// If arg p is non-zero promiscuous mode will be set on capture handle when it
+// is activated.
 func (p *Pcap) SetPromisc(promisc bool) error {
-	var pro int32
+	pro := int32(0)
 	if promisc {
 		pro = 1
 	}
@@ -102,7 +101,8 @@ func (p *Pcap) SetSnapLen(s int32) error {
 	return nil
 }
 
-// Set read timeout (milliseconds) that will be used on a capture handle when it is activated.
+// Set read timeout (milliseconds) that will be used on a capture handle when it
+// is activated.
 func (p *Pcap) SetReadTimeout(toMs int32) error {
 	if C.pcap_set_timeout(p.cptr, C.int(toMs)) != 0 {
 		return p.Geterror()
@@ -110,8 +110,8 @@ func (p *Pcap) SetReadTimeout(toMs int32) error {
 	return nil
 }
 
-// Activate a packet capture handle to look at packets on the network, with the options that
-// were set on the handle being in effect.
+// Activate a packet capture handle to look at packets on the network, with the
+// options that were set on the handle being in effect.
 func (p *Pcap) Activate() error {
 	if C.pcap_activate(p.cptr) != 0 {
 		return p.Geterror()
@@ -120,47 +120,44 @@ func (p *Pcap) Activate() error {
 }
 
 // OpenLive opens a device and returns a handler.
-func OpenLive(device string, snaplen int32, promisc bool, timeout_ms int32) (handle *Pcap, err error) {
-	var buf *C.char
-	buf = (*C.char)(C.calloc(ERRBUF_SIZE, 1))
-	h := new(Pcap)
-	var pro int32
-	if promisc {
-		pro = 1
-	}
+func OpenLive(device string, snaplen int32, promisc bool, timeout_ms int32) (*Pcap, error) {
+	buf := (*C.char)(C.calloc(ERRBUF_SIZE, 1))
+	defer C.free(unsafe.Pointer(buf))
 
 	dev := C.CString(device)
 	defer C.free(unsafe.Pointer(dev))
 
-	h.cptr = C.pcap_open_live(dev, C.int(snaplen), C.int(pro), C.int(timeout_ms), buf)
-	if nil == h.cptr {
-		handle = nil
-		err = &pcapError{C.GoString(buf)}
-	} else {
-		handle = h
+	pro := int32(0)
+	if promisc {
+		pro = 1
 	}
-	C.free(unsafe.Pointer(buf))
-	return
+
+	cptr := C.pcap_open_live(dev, C.int(snaplen), C.int(pro), C.int(timeout_ms), buf)
+	if cptr == nil {
+		return nil, &pcapError{C.GoString(buf)}
+	}
+
+	return &Pcap{
+		cptr: cptr,
+	}, nil
 }
 
-// Openoffline
-func OpenOffline(file string) (handle *Pcap, err error) {
-	var buf *C.char
-	buf = (*C.char)(C.calloc(ERRBUF_SIZE, 1))
-	h := new(Pcap)
+// OpenOffline provides a Pcap over a .pcap file.
+func OpenOffline(file string) (*Pcap, error) {
+	buf := (*C.char)(C.calloc(ERRBUF_SIZE, 1))
+	defer C.free(unsafe.Pointer(buf))
 
 	cf := C.CString(file)
 	defer C.free(unsafe.Pointer(cf))
 
-	h.cptr = C.pcap_open_offline(cf, buf)
-	if nil == h.cptr {
-		handle = nil
-		err = &pcapError{C.GoString(buf)}
-	} else {
-		handle = h
+	cptr := C.pcap_open_offline(cf, buf)
+	if cptr == nil {
+		return nil, &pcapError{C.GoString(buf)}
 	}
-	C.free(unsafe.Pointer(buf))
-	return
+
+	return &Pcap{
+		cptr: cptr,
+	}, nil
 }
 
 // Pcap closes a handler.
@@ -168,59 +165,53 @@ func (p *Pcap) Close() {
 	C.pcap_close(p.cptr)
 }
 
-func (p *Pcap) NextEx() (pkt *Packet, result int32) {
-	var pkthdr_ptr *C.struct_pcap_pkthdr
-	var pkthdr C.struct_pcap_pkthdr
-
-	var buf_ptr *C.u_char
-	var buf unsafe.Pointer
-	result = int32(C.hack_pcap_next_ex(p.cptr, &pkthdr_ptr, &buf_ptr))
-
-	buf = unsafe.Pointer(buf_ptr)
-	pkthdr = *pkthdr_ptr
-
-	if nil == buf {
-		return
+func (p *Pcap) NextEx() (*Packet, int32) {
+	var pkthdr *C.struct_pcap_pkthdr
+	var bufPtr *C.u_char
+	result := int32(C.hack_pcap_next_ex(p.cptr, &pkthdr, &bufPtr))
+	buf := unsafe.Pointer(bufPtr)
+	if buf == nil {
+		return nil, result
 	}
-	pkt = new(Packet)
-	pkt.Time = time.Unix(int64(pkthdr.ts.tv_sec), int64(pkthdr.ts.tv_usec))
-	pkt.Caplen = uint32(pkthdr.caplen)
-	pkt.Len = uint32(pkthdr.len)
-	pkt.Data = make([]byte, pkthdr.caplen)
 
+	pkt := &Packet{
+		Time:   time.Unix(int64(pkthdr.ts.tv_sec), int64(pkthdr.ts.tv_usec)),
+		Caplen: uint32(pkthdr.caplen),
+		Len:    uint32(pkthdr.len),
+		Data:   make([]byte, pkthdr.caplen),
+	}
 	for i := uint32(0); i < pkt.Caplen; i++ {
 		pkt.Data[i] = *(*byte)(unsafe.Pointer(uintptr(buf) + uintptr(i)))
 	}
-	return
+	return pkt, result
 }
 
-func (p *Pcap) Getstats() (stat *Stat, err error) {
+func (p *Pcap) Getstats() (*Stat, error) {
 	var cstats _Ctype_struct_pcap_stat
-	if -1 == C.pcap_stats(p.cptr, &cstats) {
+	if C.pcap_stats(p.cptr, &cstats) == -1 {
 		return nil, p.Geterror()
 	}
-	stats := new(Stat)
-	stats.PacketsReceived = uint32(cstats.ps_recv)
-	stats.PacketsDropped = uint32(cstats.ps_drop)
-	stats.PacketsIfDropped = uint32(cstats.ps_ifdrop)
 
-	return stats, nil
+	return &Stat{
+		PacketsReceived:  uint32(cstats.ps_recv),
+		PacketsDropped:   uint32(cstats.ps_drop),
+		PacketsIfDropped: uint32(cstats.ps_ifdrop),
+	}, nil
 }
 
-func (p *Pcap) SetFilter(expr string) (err error) {
+func (p *Pcap) SetFilter(expr string) error {
 	var bpf _Ctype_struct_bpf_program
 	cexpr := C.CString(expr)
 	defer C.free(unsafe.Pointer(cexpr))
 
-	if -1 == C.pcap_compile(p.cptr, &bpf, cexpr, 1, 0) {
+	if C.pcap_compile(p.cptr, &bpf, cexpr, 1, 0) == -1 {
 		return p.Geterror()
 	}
+	defer C.pcap_freecode(&bpf)
 
-	if -1 == C.pcap_setfilter(p.cptr, &bpf) {
-		C.pcap_freecode(&bpf)
+	if C.pcap_setfilter(p.cptr, &bpf) == -1 {
 		return p.Geterror()
 	}
-	C.pcap_freecode(&bpf)
 	return nil
 }
 
@@ -246,86 +237,86 @@ func DatalinkValueToDescription(dlt int) string {
 }
 
 func FindAllDevs() ([]Interface, error) {
-	var buf *C.char
-	buf = (*C.char)(C.calloc(ERRBUF_SIZE, 1))
+	buf := (*C.char)(C.calloc(ERRBUF_SIZE, 1))
 	defer C.free(unsafe.Pointer(buf))
-	var alldevsp *C.pcap_if_t
 
-	if -1 == C.pcap_findalldevs((**C.pcap_if_t)(&alldevsp), buf) {
+	var alldevsp *C.pcap_if_t
+	if C.pcap_findalldevs((**C.pcap_if_t)(&alldevsp), buf) == -1 {
 		return nil, errors.New(C.GoString(buf))
 	}
 	defer C.pcap_freealldevs((*C.pcap_if_t)(alldevsp))
-	dev := alldevsp
-	var i uint32
-	for i = 0; dev != nil; dev = (*C.pcap_if_t)(dev.next) {
-		i++
-	}
-	ifs := make([]Interface, i)
-	dev = alldevsp
-	for j := uint32(0); dev != nil; dev = (*C.pcap_if_t)(dev.next) {
-		var iface Interface
-		iface.Name = C.GoString(dev.name)
-		iface.Description = C.GoString(dev.description)
-		iface.Addresses = findAllAddresses(dev.addresses)
-		// TODO: add more elements
-		ifs[j] = iface
-		j++
+
+	ifs := []Interface{}
+	for dev := alldevsp; dev != nil; dev = (*C.pcap_if_t)(dev.next) {
+		ifs = append(ifs, Interface{
+			Name:        C.GoString(dev.name),
+			Description: C.GoString(dev.description),
+			Addresses:   findAllAddresses(dev.addresses),
+			// TODO: add more elements
+		})
 	}
 	return ifs, nil
 }
 
-func findAllAddresses(addresses *_Ctype_struct_pcap_addr) (retval []IFAddress) {
+func findAllAddresses(addresses *_Ctype_struct_pcap_addr) []IFAddress {
 	// TODO - make it support more than IPv4 and IPv6?
-	retval = make([]IFAddress, 0, 1)
+	a := []IFAddress{}
 	for curaddr := addresses; curaddr != nil; curaddr = (*_Ctype_struct_pcap_addr)(curaddr.next) {
 		if curaddr.addr == nil {
 			continue
 		}
-		var a IFAddress
-		var err error
-		if a.IP, err = sockaddrToIP((*syscall.RawSockaddr)(unsafe.Pointer(curaddr.addr))); err != nil {
+
+		ip, err := sockaddrToIP((*syscall.RawSockaddr)(unsafe.Pointer(curaddr.addr)))
+		if err != nil {
 			continue
 		}
-		if a.Netmask, err = sockaddrToIP((*syscall.RawSockaddr)(unsafe.Pointer(curaddr.netmask))); err != nil {
+		netmask, err := sockaddrToIP((*syscall.RawSockaddr)(unsafe.Pointer(curaddr.addr)))
+		if err != nil {
 			continue
 		}
-		retval = append(retval, a)
+
+		a = append(a, IFAddress{
+			IP:      ip,
+			Netmask: netmask,
+		})
 	}
-	return
+	return a
 }
 
-func sockaddrToIP(rsa *syscall.RawSockaddr) (IP []byte, err error) {
+func sockaddrToIP(rsa *syscall.RawSockaddr) ([]byte, error) {
 	switch rsa.Family {
 	case syscall.AF_INET:
 		pp := (*syscall.RawSockaddrInet4)(unsafe.Pointer(rsa))
-		IP = make([]byte, 4)
-		for i := 0; i < len(IP); i++ {
-			IP[i] = pp.Addr[i]
+		ip := make([]byte, 4)
+		for i := 0; i < len(ip); i++ {
+			ip[i] = pp.Addr[i]
 		}
-		return
+		return ip, nil
+
 	case syscall.AF_INET6:
 		pp := (*syscall.RawSockaddrInet6)(unsafe.Pointer(rsa))
-		IP = make([]byte, 16)
-		for i := 0; i < len(IP); i++ {
-			IP[i] = pp.Addr[i]
+		ip := make([]byte, 16)
+		for i := 0; i < len(ip); i++ {
+			ip[i] = pp.Addr[i]
 		}
-		return
+		return ip, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported address type %d", rsa.Family)
 	}
-	err = errors.New("Unsupported address type")
-	return
 }
 
-// Inject ...
-func (p *Pcap) Inject(data []byte) (err error) {
+// Inject TODO
+func (p *Pcap) Inject(data []byte) error {
 	buf := (*C.char)(C.malloc((C.size_t)(len(data))))
+	defer C.free(unsafe.Pointer(buf))
 
 	for i := 0; i < len(data); i++ {
 		*(*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(i))) = data[i]
 	}
 
-	if -1 == C.pcap_inject(p.cptr, unsafe.Pointer(buf), (C.size_t)(len(data))) {
-		err = p.Geterror()
+	if C.pcap_inject(p.cptr, unsafe.Pointer(buf), (C.size_t)(len(data))) == -1 {
+		return p.Geterror()
 	}
-	C.free(unsafe.Pointer(buf))
-	return
+	return nil
 }
