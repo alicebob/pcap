@@ -8,7 +8,7 @@ package pcap
 
 // Workaround for not knowing how to cast to const u_char**
 int hack_pcap_next_ex(pcap_t * p, struct pcap_pkthdr **pkt_header,
-		      u_char ** pkt_data)
+		   u_char ** pkt_data)
 {
 	return pcap_next_ex(p, pkt_header, (const u_char **)pkt_data);
 }
@@ -26,7 +26,8 @@ import (
 
 // Pcap wraps a pcap_t struct.
 type Pcap struct {
-	cptr *C.pcap_t
+	cptr     *C.pcap_t
+	sampling int // 1:N; a bit of a hack
 }
 
 type pcapError struct{ string }
@@ -81,7 +82,8 @@ func Create(device string) (*Pcap, error) {
 	}
 
 	return &Pcap{
-		cptr: cptr,
+		cptr:     cptr,
+		sampling: 1,
 	}, nil
 }
 
@@ -152,7 +154,8 @@ func OpenLive(device string, snaplen int32, promisc bool, timeoutMS int32) (*Pca
 	}
 
 	return &Pcap{
-		cptr: cptr,
+		cptr:     cptr,
+		sampling: 1,
 	}, nil
 }
 
@@ -170,7 +173,8 @@ func OpenOffline(file string) (*Pcap, error) {
 	}
 
 	return &Pcap{
-		cptr: cptr,
+		cptr:     cptr,
+		sampling: 1,
 	}, nil
 }
 
@@ -179,11 +183,34 @@ func (p *Pcap) Close() {
 	C.pcap_close(p.cptr)
 }
 
+// SetSampling sets the sample rate of the handle. We perform sampling in the
+// Go wrapper library, as efficiently as we can at that layer.
+func (p *Pcap) SetSampling(rate float64) {
+	// Take 1 packet every N (approximate).
+	//  rate=0.50 sampling=1.0/0.50=2
+	//  rate=0.33 sampling=1.0/0.33=3
+	//  rate=0.15 sampling=1.0/0.15=6.66=6 (alas)
+	p.sampling = int(1.0 / rate)
+}
+
 // NextEx gets the next packet on the handle.
 func (p *Pcap) NextEx() (*Packet, int32) {
 	var pkthdr *C.struct_pcap_pkthdr
 	var bufPtr *C.u_char
-	result := int32(C.hack_pcap_next_ex(p.cptr, &pkthdr, &bufPtr))
+	var result int32
+	for i := 0; i < p.sampling; i++ {
+		// "The struct pcap_pkthdr and the packet data are not to be freed by
+		// the caller, and are not guaranteed to be valid after the next call
+		// ... if the code needs them to remain valid, it must make a copy of
+		// them." --pcap_next_ex(3)
+		//
+		// I believe this is not a terrible way to do sampling. We still incur
+		// the cost of pcap_next_ex, which does copy from kernel to userspace,
+		// but we skip any further allocations and a lot of analysis in our
+		// client code.
+		result = int32(C.hack_pcap_next_ex(p.cptr, &pkthdr, &bufPtr))
+	}
+
 	buf := unsafe.Pointer(bufPtr)
 	if buf == nil {
 		return nil, result
@@ -234,7 +261,7 @@ func (p *Pcap) SetFilter(expr string) error {
 
 // SetDatalink TODO
 func (p *Pcap) SetDatalink(dlt int) error {
-	if -1 == C.pcap_set_datalink(p.cptr, C.int(dlt)) {
+	if C.pcap_set_datalink(p.cptr, C.int(dlt)) == -1 {
 		return p.Geterror()
 	}
 	return nil
