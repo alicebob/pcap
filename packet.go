@@ -8,12 +8,6 @@ import (
 	"time"
 )
 
-// PacketTime records the Sec + Usec of a packet arrival.
-type PacketTime struct {
-	Sec  int32
-	Usec int32
-}
-
 // Packet is a single packet parsed from a pcap file.
 type Packet struct {
 	// porting from 'pcap_pkthdr' struct
