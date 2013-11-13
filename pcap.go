@@ -213,8 +213,8 @@ func (p *Pcap) NextEx() (*Packet, int32) {
 		Time:   time.Unix(int64(pkthdr.ts.tv_sec), int64(pkthdr.ts.tv_usec)),
 		Caplen: uint32(pkthdr.caplen),
 		Len:    uint32(pkthdr.len),
+		Data:   C.GoBytes(buf, C.int(pkthdr.caplen)),
 	}
-	pkt.Data = C.GoBytes(buf, C.int(pkt.Caplen))
 	return pkt, result
 }
 
