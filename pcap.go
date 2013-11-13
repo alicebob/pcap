@@ -213,11 +213,8 @@ func (p *Pcap) NextEx() (*Packet, int32) {
 		Time:   time.Unix(int64(pkthdr.ts.tv_sec), int64(pkthdr.ts.tv_usec)),
 		Caplen: uint32(pkthdr.caplen),
 		Len:    uint32(pkthdr.len),
-		Data:   make([]byte, pkthdr.caplen),
 	}
-	for i := uint32(0); i < pkt.Caplen; i++ {
-		pkt.Data[i] = *(*byte)(unsafe.Pointer(uintptr(buf) + uintptr(i)))
-	}
+	pkt.Data = C.GoBytes(buf, C.int(pkt.Caplen))
 	return pkt, result
 }
 
