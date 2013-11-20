@@ -2,7 +2,7 @@
 package pcap
 
 /*
-#cgo LDFLAGS: -lpcap
+#cgo LDFLAGS: -Wl,--start-group,-Bstatic -lpcap -Wl,--end-group,-Bdynamic
 #include <stdlib.h>
 #include <pcap.h>
 */
