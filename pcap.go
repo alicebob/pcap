@@ -59,7 +59,7 @@ func (e *pcapError) Error() string { return e.string }
 func (p *Pcap) Geterror() error { return &pcapError{C.GoString(C.pcap_geterr(p.cptr))} }
 
 // Next wraps libpcap NextEx
-func (p *Pcap) Next() (pkt *Packet) { rv, _ := p.NextEx(); return rv }
+func (p *Pcap) Next() (*Packet, int32) { return p.NextEx() }
 
 // Create TODO
 func Create(device string) (*Pcap, error) {
