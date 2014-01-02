@@ -3,6 +3,7 @@ package pcap
 import (
 	"encoding/binary"
 	"fmt"
+	"net"
 	"reflect"
 	"strings"
 	"time"
@@ -17,9 +18,11 @@ type Packet struct {
 
 	Data []byte // packet data
 
-	Type    int // protocol type, see LINKTYPE_*
-	DestMac uint64
-	SrcMac  uint64
+	Type        int // protocol type, see LINKTYPE_*
+	DestMacAddr net.HardwareAddr
+	DestMac     uint64
+	SrcMacAddr  net.HardwareAddr
+	SrcMac      uint64
 
 	Headers []interface{} // decoded headers, in order
 	Payload []byte        // remaining non-header bytes
@@ -28,7 +31,9 @@ type Packet struct {
 // Decode decodes the headers of a Packet.
 func (p *Packet) Decode() {
 	p.Type = int(binary.BigEndian.Uint16(p.Data[12:14]))
+	p.DestMacAddr = net.HardwareAddr(p.Data[0:6])
 	p.DestMac = decodemac(p.Data[0:6])
+	p.SrcMacAddr = net.HardwareAddr(p.Data[6:12])
 	p.SrcMac = decodemac(p.Data[6:12])
 	p.Payload = p.Data[14:]
 
