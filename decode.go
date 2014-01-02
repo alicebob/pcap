@@ -129,6 +129,11 @@ func (arp *ARPHdr) String() (s string) {
 	return
 }
 
+// Len returns the (calculated) ARP payload length.
+func (arp *ARPHdr) Len() int {
+	return int(8 + 2*arp.HwAddressSize + 2*arp.ProtAddressSize)
+}
+
 // IPHdr is the header of an IP packet.
 type IPHdr struct {
 	Version    uint8
