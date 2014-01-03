@@ -1,5 +1,10 @@
 package pcap
 
+/*
+#include <pcap.h>
+*/
+import "C"
+
 import (
 	"fmt"
 	"net"
@@ -29,18 +34,19 @@ const (
 
 // DLT* are the types that are the same on all platforms, and that have been
 // defined by <net/bpf.h> for ages.
+// See http://www.tcpdump.org/linktypes.html
 const (
-	DLTNULL    = 0  // BSD loopback encapsulation
-	DLTEN10MB  = 1  // Ethernet (10Mb)
-	DLTEN3MB   = 2  // Experimental Ethernet (3Mb)
-	DLTAX25    = 3  // Amateur Radio AX.25
-	DLTPRONET  = 4  // Proteon ProNET Token Ring
-	DLTCHAOS   = 5  // Chaos
-	DLTIEEE802 = 6  // 802.5 Token Ring
-	DLTARCNET  = 7  // ARCNET, with BSD-style header
-	DLTSLIP    = 8  // Serial Line IP
-	DLTPPP     = 9  // Point-to-point Protocol
-	DLTFDDI    = 10 // FDDI
+	DLTNULL    = C.DLT_NULL
+	DLTEN10MB  = C.DLT_EN10MB  // Ethernet (10Mb)
+	DLTEN3MB   = C.DLT_EN3MB   // Experimental Ethernet (3Mb)
+	DLTAX25    = C.DLT_AX25    // Amateur Radio AX.25
+	DLTPRONET  = C.DLT_PRONET  // Proteon ProNET Token Ring
+	DLTCHAOS   = C.DLT_CHAOS   // Chaos
+	DLTIEEE802 = C.DLT_IEEE802 // 802.5 Token Ring
+	DLTARCNET  = C.DLT_ARCNET  // ARCNET, with BSD-style header
+	DLTSLIP    = C.DLT_SLIP    // Serial Line IP
+	DLTPPP     = C.DLT_PPP     // Point-to-point Protocol
+	DLTFDDI    = C.DLT_FDDI    // FDDI
 )
 
 const errbufSize = 256
@@ -73,7 +79,7 @@ const (
 	LinkTypeLTALK          = 104
 	LinkTypePFLOG          = 117
 	LinkTypePRISMHeader    = 119
-	LINKTypeIPOverFC       = 122
+	LinkTypeIPOverFC       = 122
 	LinkTypeSUNATM         = 123
 	LinkTypeIEEE80211Radio = 127
 	LinkTypeARCNETLinux    = 129
