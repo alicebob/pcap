@@ -19,8 +19,9 @@ import (
 
 // Pcap wraps a pcap_t struct.
 type Pcap struct {
-	cptr     *C.pcap_t
-	sampling int // 1:N; a bit of a hack
+	cptr         *C.pcap_t
+	sampling     int // 1:N; a bit of a hack
+	datalinktype int // see http://www.tcpdump.org/linktypes.html
 }
 
 type pcapError struct{ string }
@@ -50,8 +51,8 @@ type IFAddress struct {
 // Version returns the current pcap library version.
 func Version() string { return C.GoString(C.pcap_lib_version()) }
 
-// Datalink TODO
-func (p *Pcap) Datalink() int { return int(C.pcap_datalink(p.cptr)) }
+// Datalink
+func (p *Pcap) Datalink() int { return p.datalinktype }
 
 func (e *pcapError) Error() string { return e.string }
 
@@ -75,8 +76,9 @@ func Create(device string) (*Pcap, error) {
 	}
 
 	return &Pcap{
-		cptr:     cptr,
-		sampling: 1,
+		cptr:         cptr,
+		sampling:     1,
+		datalinktype: int(C.pcap_datalink(cptr)),
 	}, nil
 }
 
@@ -147,8 +149,9 @@ func OpenLive(device string, snaplen int32, promisc bool, timeoutMS int32) (*Pca
 	}
 
 	return &Pcap{
-		cptr:     cptr,
-		sampling: 1,
+		cptr:         cptr,
+		sampling:     1,
+		datalinktype: int(C.pcap_datalink(cptr)),
 	}, nil
 }
 
@@ -166,8 +169,9 @@ func OpenOffline(file string) (*Pcap, error) {
 	}
 
 	return &Pcap{
-		cptr:     cptr,
-		sampling: 1,
+		cptr:         cptr,
+		sampling:     1,
+		datalinktype: int(C.pcap_datalink(cptr)),
 	}, nil
 }
 
@@ -210,10 +214,11 @@ func (p *Pcap) NextEx() (*Packet, int32) {
 	}
 
 	pkt := &Packet{
-		Time:   time.Unix(int64(pkthdr.ts.tv_sec), int64(pkthdr.ts.tv_usec)),
-		Caplen: uint32(pkthdr.caplen),
-		Len:    uint32(pkthdr.len),
-		Data:   C.GoBytes(buf, C.int(pkthdr.caplen)),
+		DatalinkType: p.datalinktype,
+		Time:         time.Unix(int64(pkthdr.ts.tv_sec), int64(pkthdr.ts.tv_usec)),
+		Caplen:       uint32(pkthdr.caplen),
+		Len:          uint32(pkthdr.len),
+		Data:         C.GoBytes(buf, C.int(pkthdr.caplen)), // Note: full copy
 	}
 	return pkt, result
 }

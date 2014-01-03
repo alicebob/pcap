@@ -3,6 +3,7 @@ package pcap
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"reflect"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 // Packet is a single packet parsed from a pcap file.
 type Packet struct {
+	DatalinkType int // DLT_* type
 	// porting from 'pcap_pkthdr' struct
 	Time   time.Time // packet send/receive time
 	Caplen uint32    // bytes stored in the file (caplen <= len)
@@ -18,7 +20,7 @@ type Packet struct {
 
 	Data []byte // packet data
 
-	Type        int // protocol type, see LINKTYPE_*
+	Type        int // (next)protocol type
 	DestMacAddr net.HardwareAddr
 	DestMac     uint64
 	SrcMacAddr  net.HardwareAddr
@@ -30,20 +32,27 @@ type Packet struct {
 
 // Decode decodes the headers of a Packet.
 func (p *Packet) Decode() {
-	p.Type = int(binary.BigEndian.Uint16(p.Data[12:14]))
-	p.DestMacAddr = net.HardwareAddr(p.Data[0:6])
-	p.DestMac = decodemac(p.Data[0:6])
-	p.SrcMacAddr = net.HardwareAddr(p.Data[6:12])
-	p.SrcMac = decodemac(p.Data[6:12])
-	p.Payload = p.Data[14:]
+	switch p.DatalinkType {
+	case DLTEN10MB:
+		p.Type = int(binary.BigEndian.Uint16(p.Data[12:14]))
+		p.DestMacAddr = net.HardwareAddr(p.Data[0:6])
+		p.DestMac = decodemac(p.Data[0:6])
+		p.SrcMacAddr = net.HardwareAddr(p.Data[6:12])
+		p.SrcMac = decodemac(p.Data[6:12])
+		p.Payload = p.Data[14:]
 
-	switch p.Type {
-	case TypeIP:
-		p.decodeIP()
-	case TypeIP6:
-		p.decodeIP6()
-	case TypeARP:
-		p.decodeARP()
+		switch p.Type {
+		case TypeIP:
+			p.decodeIP()
+		case TypeIP6:
+			p.decodeIP6()
+		case TypeARP:
+			p.decodeARP()
+		}
+	// case DLTNULL:
+	// p.decodeIP()
+	default:
+		log.Printf("unknown datalink type: %v", p.DatalinkType)
 	}
 }
 
