@@ -30,9 +30,19 @@ type Packet struct {
 	Payload []byte        // remaining non-header bytes
 }
 
+func supportedDatalink(id int) bool {
+	switch id {
+	case DLTEN10MB:
+		return true
+	default:
+		return false
+	}
+}
+
 // Decode decodes the headers of a Packet.
 func (p *Packet) Decode() {
 	switch p.DatalinkType {
+	// Update supportedDatalink() if you add a type here
 	case DLTEN10MB:
 		p.Type = int(binary.BigEndian.Uint16(p.Data[12:14]))
 		p.DestMacAddr = net.HardwareAddr(p.Data[0:6])

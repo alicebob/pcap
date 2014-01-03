@@ -148,10 +148,15 @@ func OpenLive(device string, snaplen int32, promisc bool, timeoutMS int32) (*Pca
 		return nil, &pcapError{C.GoString(buf)}
 	}
 
+	datalinktype := int(C.pcap_datalink(cptr))
+	if !supportedDatalink(datalinktype) {
+		return nil, fmt.Errorf("unknown datalink type: %v", DatalinkValueToName(datalinktype))
+	}
+
 	return &Pcap{
 		cptr:         cptr,
 		sampling:     1,
-		datalinktype: int(C.pcap_datalink(cptr)),
+		datalinktype: datalinktype,
 	}, nil
 }
 
@@ -168,10 +173,15 @@ func OpenOffline(file string) (*Pcap, error) {
 		return nil, &pcapError{C.GoString(buf)}
 	}
 
+	datalinktype := int(C.pcap_datalink(cptr))
+	if !supportedDatalink(datalinktype) {
+		return nil, fmt.Errorf("unknown datalink type: %v", DatalinkValueToName(datalinktype))
+	}
+
 	return &Pcap{
 		cptr:         cptr,
 		sampling:     1,
-		datalinktype: int(C.pcap_datalink(cptr)),
+		datalinktype: datalinktype,
 	}, nil
 }
 
