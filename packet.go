@@ -1,5 +1,10 @@
 package pcap
 
+/*
+#include <pcap.h>
+*/
+import "C"
+
 import (
 	"encoding/binary"
 	"fmt"
@@ -34,6 +39,8 @@ func supportedDatalink(id int) bool {
 	switch id {
 	case DLTEN10MB:
 		return true
+	case DLTLINUXSSL:
+		return true
 	default:
 		return false
 	}
@@ -43,26 +50,44 @@ func supportedDatalink(id int) bool {
 func (p *Packet) Decode() {
 	switch p.DatalinkType {
 	// Update supportedDatalink() if you add a type here
-	case DLTEN10MB:
+	case C.DLT_EN10MB:
+		// Ethernet
 		p.Type = int(binary.BigEndian.Uint16(p.Data[12:14]))
 		p.DestMacAddr = net.HardwareAddr(p.Data[0:6])
 		p.DestMac = decodemac(p.Data[0:6])
 		p.SrcMacAddr = net.HardwareAddr(p.Data[6:12])
 		p.SrcMac = decodemac(p.Data[6:12])
 		p.Payload = p.Data[14:]
+	case C.DLT_LINUX_SLL:
+		// Linux cooked
+		// http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
+		// packetType := int(binary.BigEndian.Uint16(p.Data[0:2]))
+		linkLayerAddressType := int(binary.BigEndian.Uint16(p.Data[2:4]))
+		linkLayerAddressLength := int(binary.BigEndian.Uint16(p.Data[4:6]))
+		linkLayerAddress := p.Data[8 : 8+linkLayerAddressLength]
+		protocol := int(binary.BigEndian.Uint16(p.Data[14:16]))
 
-		switch p.Type {
-		case TypeIP:
-			p.decodeIP()
-		case TypeIP6:
-			p.decodeIP6()
-		case TypeARP:
-			p.decodeARP()
+		p.Type = protocol
+		if linkLayerAddressType == ARPHRD_ETHER {
+			// Ethernet
+			p.SrcMacAddr = net.HardwareAddr(linkLayerAddress)
+			p.SrcMac = decodemac(linkLayerAddress)
 		}
-	// case DLTNULL:
-	// p.decodeIP()
+		p.Payload = p.Data[16:]
 	default:
 		log.Printf("unknown datalink type: %v", DatalinkValueToName(p.DatalinkType))
+		return
+	}
+
+	switch p.Type {
+	case TypeIP:
+		p.decodeIP()
+	case TypeIP6:
+		p.decodeIP6()
+	case TypeARP:
+		p.decodeARP()
+	default:
+		log.Printf("unknown protocol type for packet: %v", p.Type)
 	}
 }
 

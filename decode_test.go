@@ -217,3 +217,50 @@ func TestDecodeMaliciousTCPDataOffset(t *testing.T) {
 		}}
 	p.Decode()
 }
+
+func TestDecodeLinuxCooked(t *testing.T) {
+	// IPv4 and a UDP packet.
+	p := &Packet{
+		DatalinkType: DLTLINUXSSL,
+		Data: []byte{
+			0x00, 0x04, 0xff, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x45, 0x00, 0x00, 0x30, 0x3f, 0xbc, 0x00, 0x00, 0x40, 0x11, 0x59, 0xb1, 0x2e, 0xf6, 0x22, 0xa4, 0x5c, 0x81, 0x33, 0x35, 0x1a, 0xe1, 0xd3, 0x99, 0x00, 0x1c, 0x8d, 0xe4, 0x21, 0x00, 0x80, 0x98, 0x45, 0x23, 0xde, 0x2a, 0xca, 0x0d, 0xc1, 0x5c, 0x06, 0x3f, 0xfa, 0x89, 0x65, 0xe9, 0xeb, 0x02,
+		},
+	}
+	p.Decode()
+	if p.DestMac != 0x0 {
+		t.Error("Dest mac", p.DestMac)
+	}
+	if p.SrcMac != 0x0 {
+		t.Error("Src mac", p.SrcMac)
+	}
+	if len(p.Headers) != 2 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+		return
+	}
+
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IP header")
+	}
+	if ip.Version != 4 {
+		t.Error("ip Version", ip.Version)
+	}
+	if ip.Ihl != 5 {
+		t.Error("ip header length", ip.Ihl)
+	}
+
+	udp, udpOk := p.Headers[1].(*UDPHdr)
+	if !udpOk {
+		t.Fatal("Second header is not a UDP header")
+	}
+	if udp.SrcPort != 6881 {
+		t.Error("udp srcport", udp.SrcPort)
+	}
+	if udp.DestPort != 54169 {
+		t.Error("udp destport", udp.DestPort)
+	}
+
+	if len(p.Payload) != 20 {
+		t.Error("Wrong payload length")
+	}
+}

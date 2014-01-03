@@ -8,12 +8,11 @@ import (
 )
 
 func TestPcap(t *testing.T) {
-	h, err := OpenOffline("test/pcap_files/Network_Join_Nokia_Mobile.pcap")
-	if h == nil {
+	// That's an IEEE802_11 type. We don't do those.
+	_, err := OpenOffline("test/pcap_files/Network_Join_Nokia_Mobile.pcap")
+	if err == nil {
 		t.Fail()
-		return
 	}
-	_ = err
 }
 
 type pcapNewHandleFunc func(intf string, filter string, readTo int32) (h *Pcap, err error)

@@ -21,6 +21,8 @@ const (
 	IPInIP = 4
 	IPTCP  = 6
 	IPUDP  = 17
+
+	ARPHRD_ETHER = 1
 )
 
 // Port from sf-pcap.c file.
@@ -32,21 +34,21 @@ const (
 	NsecTcpdumpMagic      = 0xa1b23c4d
 )
 
-// DLT* are the types that are the same on all platforms, and that have been
-// defined by <net/bpf.h> for ages.
+// DLT* are the data link types. They can differ per platform.
 // See http://www.tcpdump.org/linktypes.html
 const (
-	DLTNULL    = C.DLT_NULL
-	DLTEN10MB  = C.DLT_EN10MB  // Ethernet (10Mb)
-	DLTEN3MB   = C.DLT_EN3MB   // Experimental Ethernet (3Mb)
-	DLTAX25    = C.DLT_AX25    // Amateur Radio AX.25
-	DLTPRONET  = C.DLT_PRONET  // Proteon ProNET Token Ring
-	DLTCHAOS   = C.DLT_CHAOS   // Chaos
-	DLTIEEE802 = C.DLT_IEEE802 // 802.5 Token Ring
-	DLTARCNET  = C.DLT_ARCNET  // ARCNET, with BSD-style header
-	DLTSLIP    = C.DLT_SLIP    // Serial Line IP
-	DLTPPP     = C.DLT_PPP     // Point-to-point Protocol
-	DLTFDDI    = C.DLT_FDDI    // FDDI
+	DLTNULL     = C.DLT_NULL
+	DLTEN10MB   = C.DLT_EN10MB    // Ethernet (10Mb)
+	DLTEN3MB    = C.DLT_EN3MB     // Experimental Ethernet (3Mb)
+	DLTAX25     = C.DLT_AX25      // Amateur Radio AX.25
+	DLTPRONET   = C.DLT_PRONET    // Proteon ProNET Token Ring
+	DLTCHAOS    = C.DLT_CHAOS     // Chaos
+	DLTIEEE802  = C.DLT_IEEE802   // 802.5 Token Ring
+	DLTARCNET   = C.DLT_ARCNET    // ARCNET, with BSD-style header
+	DLTSLIP     = C.DLT_SLIP      // Serial Line IP
+	DLTPPP      = C.DLT_PPP       // Point-to-point Protocol
+	DLTFDDI     = C.DLT_FDDI      // FDDI
+	DLTLINUXSSL = C.DLT_LINUX_SLL // Linux cooked
 )
 
 const errbufSize = 256
