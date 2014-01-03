@@ -13,9 +13,10 @@ import (
 
 // Type constants.
 const (
-	TypeIP  = 0x0800
-	TypeARP = 0x0806
-	TypeIP6 = 0x86DD
+	TypeIP    = 0x0800
+	TypeARP   = 0x0806
+	TypeIP6   = 0x86DD
+	TypeEAPOL = 0x888E
 
 	IPICMP = 1
 	IPInIP = 4

@@ -86,6 +86,8 @@ func (p *Packet) Decode() {
 		p.decodeIP6()
 	case TypeARP:
 		p.decodeARP()
+	case TypeEAPOL:
+		// IEEE 802.1X.
 	default:
 		log.Printf("unknown protocol type for packet: %v", p.Type)
 	}
