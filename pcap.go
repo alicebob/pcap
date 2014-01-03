@@ -259,6 +259,7 @@ func (p *Pcap) SetDatalink(dlt int) error {
 	if C.pcap_set_datalink(p.cptr, C.int(dlt)) == -1 {
 		return p.Geterror()
 	}
+	p.datalinktype = dlt
 	return nil
 }
 

@@ -52,7 +52,7 @@ func (p *Packet) Decode() {
 	// case DLTNULL:
 	// p.decodeIP()
 	default:
-		log.Printf("unknown datalink type: %v", p.DatalinkType)
+		log.Printf("unknown datalink type: %v", DatalinkValueToName(p.DatalinkType))
 	}
 }
 
