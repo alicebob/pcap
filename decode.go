@@ -18,10 +18,11 @@ const (
 	TypeIP6   = 0x86DD
 	TypeEAPOL = 0x888E
 
-	IPICMP = 1
-	IPInIP = 4
-	IPTCP  = 6
-	IPUDP  = 17
+	IPICMP   = 1
+	IPInIP   = 4
+	IPTCP    = 6
+	IPUDP    = 17
+	IPICMPv6 = 58
 
 	ARPHRD_ETHER = 1
 )
@@ -312,3 +313,10 @@ func (ip6 *IP6Hdr) DestAddr() string { return net.IP(ip6.DestIP).String() }
 
 // Len returns the ip6.Length.
 func (ip6 *IP6Hdr) Len() int { return int(ip6.Length) }
+
+// ICMPv6Hdr is for ICMPv6
+type ICMPv6Hdr struct {
+	Type     uint8
+	Code     uint8
+	Checksum uint16
+}

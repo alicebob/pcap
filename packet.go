@@ -192,6 +192,7 @@ func (p *Packet) decodeIP() {
 		p.decodeUDP()
 	case IPICMP:
 		p.decodeICMP()
+	// No IPICMPv6
 	case IPInIP:
 		p.decodeIP()
 	}
@@ -235,9 +236,9 @@ func (p *Packet) decodeUDP() {
 	p.Payload = pkt[8:]
 }
 
-func (p *Packet) decodeICMP() *ICMPHdr {
+func (p *Packet) decodeICMP() {
 	if len(p.Payload) < 8 {
-		return nil
+		return
 	}
 	pkt := p.Payload
 	icmp := new(ICMPHdr)
@@ -248,7 +249,6 @@ func (p *Packet) decodeICMP() *ICMPHdr {
 	icmp.Seq = binary.BigEndian.Uint16(pkt[6:8])
 	p.Payload = pkt[8:]
 	p.Headers = append(p.Headers, icmp)
-	return icmp
 }
 
 func (p *Packet) decodeIP6() {
@@ -273,9 +273,23 @@ func (p *Packet) decodeIP6() {
 		p.decodeTCP()
 	case IPUDP:
 		p.decodeUDP()
-	case IPICMP:
-		p.decodeICMP()
+	// No IPICMP
+	case IPICMPv6:
+		p.decodeICMPv6()
 	case IPInIP:
 		p.decodeIP()
 	}
+}
+
+func (p *Packet) decodeICMPv6() {
+	if len(p.Payload) < 4 {
+		return
+	}
+	pkt := p.Payload
+	icmpv6 := new(ICMPv6Hdr)
+	icmpv6.Type = pkt[0]
+	icmpv6.Code = pkt[1]
+	icmpv6.Checksum = binary.BigEndian.Uint16(pkt[2:4])
+	p.Payload = pkt[4:]
+	p.Headers = append(p.Headers, icmpv6)
 }

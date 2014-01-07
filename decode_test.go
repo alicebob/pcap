@@ -260,7 +260,64 @@ func TestDecodeLinuxCooked(t *testing.T) {
 		t.Error("udp destport", udp.DestPort)
 	}
 
+	// Leftover payload (so this is UDP payload)
 	if len(p.Payload) != 20 {
 		t.Error("Wrong payload length")
+	}
+}
+
+func TestDecodeICMPv6(t *testing.T) {
+	// ICMPv6 neighbor solicitation
+	p := &Packet{
+		DatalinkType: DLTEN10MB,
+		Data: []byte{
+			0x33, 0x33, 0xff, 0x0e, 0x04, 0x63, 0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d, 0x86, 0xdd, 0x60, 0x00, 0x00, 0x00, 0x00, 0x20, 0x3a, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x96, 0xd7, 0xff, 0xfe, 0x07, 0x93, 0x0d, 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xff, 0x0e, 0x04, 0x63, 0x87, 0x00, 0xef, 0x25, 0x00, 0x00, 0x00, 0x00, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x3e, 0x84, 0xff, 0xfe, 0x0e, 0x04, 0x63, 0x01, 0x01, 0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d,
+		},
+	}
+	p.Decode()
+	if p.DestMac != 0x3333ff0e0463 {
+		// 33:33:ff:0e:04:63
+		t.Error("Dest mac", p.DestMac)
+	}
+	if p.SrcMac != 0x0896d707930d {
+		// 08:96:d7:07:93:0d
+		t.Error("Src mac", p.SrcMac)
+	}
+	if len(p.Headers) != 2 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+		return
+	}
+
+	ip, ipOk := p.Headers[0].(*IP6Hdr)
+	if !ipOk {
+		t.Fatal("First header is not an IPv6 header")
+	}
+	if ip.Version != 6 {
+		t.Error("ip Version", ip.Version)
+	}
+	if ip.Length != 32 {
+		t.Error("ipv6 payload length", ip.Length)
+	}
+	if ip.SrcAddr() != "fd00::a96:d7ff:fe07:930d" {
+		t.Error("ipv6 src address", ip.SrcIP)
+	}
+	if ip.DestAddr() != "ff02::1:ff0e:463" {
+		t.Error("ipv6 dest address", ip.DestIP)
+	}
+
+	icmp, icmpOk := p.Headers[1].(*ICMPv6Hdr)
+	if !icmpOk {
+		t.Fatal("Second header is not a ICMPv6 header")
+	}
+	if icmp.Type != 135 {
+		t.Error("ICMPv6 type", icmp.Type)
+	}
+	if icmp.Code != 0 {
+		t.Error("ICMPv6 code", icmp.Code)
+	}
+
+	// Leftover payload (so this is ICMPv6's payload)
+	if len(p.Payload) != 32-4 {
+		t.Error("Wrong ICMPv6 payload length", len(p.Payload))
 	}
 }
