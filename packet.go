@@ -192,7 +192,7 @@ func (p *Packet) decodeIP() {
 		p.decodeUDP()
 	case IPICMP:
 		p.decodeICMP()
-	// No IPICMPv6
+	// No ICMPv6
 	case IPInIP:
 		p.decodeIP()
 	}
@@ -245,8 +245,8 @@ func (p *Packet) decodeICMP() {
 	icmp.Type = pkt[0]
 	icmp.Code = pkt[1]
 	icmp.Checksum = binary.BigEndian.Uint16(pkt[2:4])
-	icmp.ID = binary.BigEndian.Uint16(pkt[4:6])
-	icmp.Seq = binary.BigEndian.Uint16(pkt[6:8])
+	// [4:8] are reserved and Type dependent
+	// We don't look at extended ICMP
 	p.Payload = pkt[8:]
 	p.Headers = append(p.Headers, icmp)
 }
@@ -273,7 +273,7 @@ func (p *Packet) decodeIP6() {
 		p.decodeTCP()
 	case IPUDP:
 		p.decodeUDP()
-	// No IPICMP
+	// No ICMP
 	case IPICMPv6:
 		p.decodeICMPv6()
 	case IPInIP:
@@ -282,7 +282,7 @@ func (p *Packet) decodeIP6() {
 }
 
 func (p *Packet) decodeICMPv6() {
-	if len(p.Payload) < 4 {
+	if len(p.Payload) < 8 {
 		return
 	}
 	pkt := p.Payload
@@ -290,6 +290,8 @@ func (p *Packet) decodeICMPv6() {
 	icmpv6.Type = pkt[0]
 	icmpv6.Code = pkt[1]
 	icmpv6.Checksum = binary.BigEndian.Uint16(pkt[2:4])
-	p.Payload = pkt[4:]
+	// [4:8] are reserved and Type dependent
+	// We don't look at extended ICMP
+	p.Payload = pkt[8:]
 	p.Headers = append(p.Headers, icmpv6)
 }

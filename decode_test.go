@@ -317,7 +317,7 @@ func TestDecodeICMPv6(t *testing.T) {
 	}
 
 	// Leftover payload (so this is ICMPv6's payload)
-	if len(p.Payload) != 32-4 {
+	if len(p.Payload) != 32-8 {
 		t.Error("Wrong ICMPv6 payload length", len(p.Payload))
 	}
 }
