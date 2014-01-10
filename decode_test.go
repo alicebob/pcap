@@ -48,10 +48,10 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 			0x0d, 0x0a,
 		}}
 	p.Decode()
-	if p.DestMac != 0x00000c9ff020 {
+	if !bytes.Equal(p.DestMac, []byte{0, 0, 0x0c, 0x9f, 0xf0, 0x20}) {
 		t.Error("Dest mac", p.DestMac)
 	}
-	if p.SrcMac != 0xbc305be8d349 {
+	if !bytes.Equal(p.SrcMac, []byte{0xbc, 0x30, 0x5b, 0xe8, 0xd3, 0x49}) {
 		t.Error("Src mac", p.SrcMac)
 	}
 	if len(p.Headers) != 2 {
@@ -227,10 +227,10 @@ func TestDecodeLinuxCooked(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if p.DestMac != 0x0 {
+	if p.DestMac != nil {
 		t.Error("Dest mac", p.DestMac)
 	}
-	if p.SrcMac != 0x0 {
+	if p.SrcMac != nil {
 		t.Error("Src mac", p.SrcMac)
 	}
 	if len(p.Headers) != 2 {
@@ -275,11 +275,11 @@ func TestDecodeICMPv6(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if p.DestMac != 0x3333ff0e0463 {
+	if !bytes.Equal(p.DestMac, []byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63}) {
 		// 33:33:ff:0e:04:63
 		t.Error("Dest mac", p.DestMac)
 	}
-	if p.SrcMac != 0x0896d707930d {
+	if !bytes.Equal(p.SrcMac, []byte{0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d}) {
 		// 08:96:d7:07:93:0d
 		t.Error("Src mac", p.SrcMac)
 	}

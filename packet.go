@@ -9,7 +9,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"net"
 	"reflect"
 	"strings"
 	"time"
@@ -25,11 +24,9 @@ type Packet struct {
 
 	Data []byte // packet data
 
-	Type        int // (next)protocol type
-	DestMacAddr net.HardwareAddr
-	DestMac     uint64
-	SrcMacAddr  net.HardwareAddr
-	SrcMac      uint64
+	Type    int // (next)protocol type
+	DestMac []byte
+	SrcMac  []byte
 
 	Headers []interface{} // decoded headers, in order
 	Payload []byte        // remaining non-header bytes
@@ -53,10 +50,10 @@ func (p *Packet) Decode() {
 	case C.DLT_EN10MB:
 		// Ethernet
 		p.Type = int(binary.BigEndian.Uint16(p.Data[12:14]))
-		p.DestMacAddr = net.HardwareAddr(p.Data[0:6])
-		p.DestMac = decodemac(p.Data[0:6])
-		p.SrcMacAddr = net.HardwareAddr(p.Data[6:12])
-		p.SrcMac = decodemac(p.Data[6:12])
+		p.DestMac = make([]byte, 6)
+		copy(p.DestMac, p.Data[0:6])
+		p.SrcMac = make([]byte, 6)
+		copy(p.SrcMac, p.Data[6:12])
 		p.Payload = p.Data[14:]
 	case C.DLT_LINUX_SLL:
 		// Linux cooked
@@ -70,8 +67,8 @@ func (p *Packet) Decode() {
 		p.Type = protocol
 		if linkLayerAddressType == ARPHRD_ETHER {
 			// Ethernet
-			p.SrcMacAddr = net.HardwareAddr(linkLayerAddress)
-			p.SrcMac = decodemac(linkLayerAddress)
+			p.SrcMac = make([]byte, 6)
+			copy(p.SrcMac, linkLayerAddress)
 		}
 		p.Payload = p.Data[16:]
 	default:
