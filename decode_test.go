@@ -266,6 +266,54 @@ func TestDecodeLinuxCooked(t *testing.T) {
 	}
 }
 
+func TestDecodeRaw(t *testing.T) {
+	// IPv4 and a UDP packet in a RAW socket.
+	p := &Packet{
+		DatalinkType: DLTRAW,
+		Data: []byte{
+			0x45, 0x00, 0x00, 0x2c, 0x71, 0x7f, 0x00, 0x00, 0x01, 0x11, 0x0f, 0xaf, 0x2e, 0xf6, 0x29, 0x9c, 0xe0, 0x00, 0x00, 0x01, 0xf9, 0x15, 0x21, 0xa4, 0x00, 0x18, 0x10, 0xde, 0x50, 0x4e, 0x4a, 0x42, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		},
+	}
+	p.Decode()
+	if p.DestMac != nil {
+		t.Error("Dest mac", p.DestMac)
+	}
+	if p.SrcMac != nil {
+		t.Error("Src mac", p.SrcMac)
+	}
+	if len(p.Headers) != 2 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+		return
+	}
+
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IP header")
+	}
+	if ip.Version != 4 {
+		t.Error("ip Version", ip.Version)
+	}
+	if ip.Ihl != 5 {
+		t.Error("ip header length", ip.Ihl)
+	}
+
+	udp, udpOk := p.Headers[1].(*UDPHdr)
+	if !udpOk {
+		t.Fatal("Second header is not a UDP header")
+	}
+	if udp.SrcPort != 63765 {
+		t.Error("udp srcport", udp.SrcPort)
+	}
+	if udp.DestPort != 8612 {
+		t.Error("udp destport", udp.DestPort)
+	}
+
+	// Leftover payload (so this is UDP payload)
+	if len(p.Payload) != 16 {
+		t.Error("Wrong payload length")
+	}
+}
+
 func TestDecodeICMPv6(t *testing.T) {
 	// ICMPv6 neighbor solicitation
 	p := &Packet{

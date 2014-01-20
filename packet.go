@@ -34,9 +34,7 @@ type Packet struct {
 
 func supportedDatalink(id int) bool {
 	switch id {
-	case DLTEN10MB:
-		return true
-	case DLTLINUXSSL:
+	case DLTEN10MB, DLTLINUXSSL, DLTRAW:
 		return true
 	default:
 		return false
@@ -71,6 +69,21 @@ func (p *Packet) Decode() {
 			copy(p.SrcMac, linkLayerAddress)
 		}
 		p.Payload = p.Data[16:]
+	case C.DLT_RAW:
+		// RAW. So this is IP, but it can be either v4 or v6.
+		if len(p.Data) < 20 {
+			return
+		}
+		p.Payload = p.Data
+		version := uint8(p.Data[0]) >> 4
+		switch version {
+		case 4:
+			p.Type = TypeIP
+		case 6:
+			p.Type = TypeIP6
+		default:
+			log.Printf("unknown raw packet format")
+		}
 	default:
 		log.Printf("unknown datalink type: %v", DatalinkValueToName(p.DatalinkType))
 		return

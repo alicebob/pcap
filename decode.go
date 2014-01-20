@@ -40,6 +40,7 @@ const (
 // See http://www.tcpdump.org/linktypes.html
 const (
 	DLTNULL     = C.DLT_NULL
+	DLTRAW      = C.DLT_RAW
 	DLTEN10MB   = C.DLT_EN10MB    // Ethernet (10Mb)
 	DLTEN3MB    = C.DLT_EN3MB     // Experimental Ethernet (3Mb)
 	DLTAX25     = C.DLT_AX25      // Amateur Radio AX.25
