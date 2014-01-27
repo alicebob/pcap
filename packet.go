@@ -11,6 +11,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -63,7 +64,7 @@ func (p *Packet) Decode() {
 		protocol := int(binary.BigEndian.Uint16(p.Data[14:16]))
 
 		p.Type = protocol
-		if linkLayerAddressType == ARPHRD_ETHER {
+		if linkLayerAddressType == syscall.ARPHRD_ETHER {
 			// Ethernet
 			p.SrcMac = make([]byte, 6)
 			copy(p.SrcMac, linkLayerAddress)

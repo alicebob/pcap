@@ -9,22 +9,21 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"syscall"
 )
 
 // Type constants.
 const (
-	TypeIP    = 0x0800
-	TypeARP   = 0x0806
-	TypeIP6   = 0x86DD
-	TypeEAPOL = 0x888E
+	TypeIP    = syscall.ETH_P_IP
+	TypeARP   = syscall.ETH_P_ARP
+	TypeIP6   = syscall.ETH_P_IPV6
+	TypeEAPOL = syscall.ETH_P_PAE
 
-	IPICMP   = 1
-	IPInIP   = 4
-	IPTCP    = 6
-	IPUDP    = 17
-	IPICMPv6 = 58
-
-	ARPHRD_ETHER = 1
+	IPICMP   = syscall.IPPROTO_ICMP
+	IPInIP   = syscall.IPPROTO_IPIP
+	IPTCP    = syscall.IPPROTO_TCP
+	IPUDP    = syscall.IPPROTO_UDP
+	IPICMPv6 = syscall.IPPROTO_ICMPV6
 )
 
 // Port from sf-pcap.c file.
