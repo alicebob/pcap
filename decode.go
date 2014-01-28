@@ -295,14 +295,16 @@ func (icmp *ICMPHdr) TypeString() (result string) {
 // IP6Hdr is the header of an IPv6 packet.
 type IP6Hdr struct {
 	// http://www.networksorcery.com/enp/protocol/ipv6.htm
-	Version      uint8  // 4 bits
-	TrafficClass uint8  // 8 bits
-	FlowLabel    uint32 // 20 bits
-	Length       uint16 // 16 bits
-	NextHeader   uint8  // 8 bits, same as Protocol in IPHdr
-	HopLimit     uint8  // 8 bits
-	SrcIP        []byte // 16 bytes
-	DestIP       []byte // 16 bytes
+	Version        uint8  // 4 bits
+	TrafficClass   uint8  // 8 bits
+	FlowLabel      uint32 // 20 bits
+	Length         uint16 // 16 bits
+	NextHeader     uint8  // 8 bits, similar to Protocol in IPHdr
+	HopLimit       uint8  // 8 bits
+	SrcIP          []byte // 16 bytes
+	DestIP         []byte // 16 bytes
+	Fragmented     bool   // Extended header
+	FragmentOffset uint16 // In 8-byte units
 }
 
 // SrcAddr returns the string version of the source IP.

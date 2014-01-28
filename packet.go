@@ -279,12 +279,28 @@ func (p *Packet) decodeIP6() {
 	p.Payload = pkt[40:]
 	p.Headers = append(p.Headers, ip6)
 
+SWITCH:
 	switch ip6.NextHeader {
+	case syscall.IPPROTO_FRAGMENT:
+		// Extended header: fragmented packet. 8 bytes. rfc2460
+		// (we ignore the fragment information)
+		if len(p.Payload) < 8 {
+			return
+		}
+		ip6.Length -= 8 // _we_ don't count headers as payload
+		ip6.NextHeader = p.Payload[0]
+		ip6.Fragmented = true
+		ip6.FragmentOffset = binary.BigEndian.Uint16(p.Payload[2:4]) >> 3
+		p.Payload = p.Payload[8:]
+		// Only look at the content for the first packet.
+		if ip6.FragmentOffset == 0 {
+			goto SWITCH
+		}
 	case IPTCP:
 		p.decodeTCP()
 	case IPUDP:
 		p.decodeUDP()
-	// No ICMP
+	// No ICMP (v4)
 	case IPICMPv6:
 		p.decodeICMPv6()
 	case IPInIP:

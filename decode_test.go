@@ -352,6 +352,9 @@ func TestDecodeICMPv6(t *testing.T) {
 	if ip.DestAddr() != "ff02::1:ff0e:463" {
 		t.Error("ipv6 dest address", ip.DestIP)
 	}
+	if ip.Fragmented {
+		t.Error("not fragmented")
+	}
 
 	icmp, icmpOk := p.Headers[1].(*ICMPv6Hdr)
 	if !icmpOk {
@@ -367,5 +370,131 @@ func TestDecodeICMPv6(t *testing.T) {
 	// Leftover payload (so this is ICMPv6's payload)
 	if len(p.Payload) != 32-8 {
 		t.Error("Wrong ICMPv6 payload length", len(p.Payload))
+	}
+}
+
+func TestDecodeIPv6FragmentFirst(t *testing.T) {
+	// IPv6 packet with 'fragment' extended header.
+	// This is the first fragment, so we can analyze the payload.
+	// (packets are generated with `ping6 -p DEADBEEF -s 40000 somehost`)
+	p := &Packet{
+		DatalinkType: DLTEN10MB,
+		Data: []byte{
+			0x80, 0xee, 0x73, 0x83, 0x58, 0x8f, 0x1c, 0x3e, 0x84, 0x0e, 0x04,
+			0x63, 0x86, 0xdd, 0x60, 0x00, 0x00, 0x00, 0x05, 0xb0, 0x2c, 0xff,
+			0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x3e, 0x84,
+			0xff, 0xfe, 0x0e, 0x04, 0x63, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x1d, 0xb4, 0x9c, 0x8c, 0x8d, 0x9c, 0xe2, 0xd5, 0x3a,
+			0x00, 0x00, 0x01, 0x63, 0x21, 0x8d, 0x29, 0x81, 0x00, 0x7d, 0x18,
+			0x20, 0xda, 0x00, 0x01, 0x7e, 0xde, 0xe7, 0x52, 0x00, 0x00, 0x00,
+			0x00, 0xab, 0x8c, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0xde, 0xad,
+			0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef,
+			// ... and quite a few more deadbeefs.
+		},
+	}
+	p.Decode()
+	if !bytes.Equal(p.SrcMac, []byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63}) {
+		// 1c:3e:84:0e:04:63
+		t.Errorf("Src mac %v", p.SrcMac)
+	}
+	if !bytes.Equal(p.DestMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+		// 80:ee:73:83:58:8f
+		t.Errorf("Dest mac %v", p.DestMac)
+	}
+	if len(p.Headers) != 2 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+		return
+	}
+
+	ip, ipOk := p.Headers[0].(*IP6Hdr)
+	if !ipOk {
+		t.Fatal("First header is not an IPv6 header")
+	}
+	if ip.Version != 6 {
+		t.Error("ip Version", ip.Version)
+	}
+	if ip.Length != 1448 {
+		// We chopped the test bytes above.
+		t.Error("ipv6 payload length", ip.Length)
+	}
+	if ip.SrcAddr() != "fd00::1e3e:84ff:fe0e:463" {
+		t.Error("ipv6 src address", ip.SrcIP)
+	}
+	if ip.DestAddr() != "fd00::1db4:9c8c:8d9c:e2d5" {
+		t.Error("ipv6 dest address", ip.DestIP)
+	}
+	if !ip.Fragmented {
+		t.Error("not fragmented")
+	}
+
+	icmp, icmpOk := p.Headers[1].(*ICMPv6Hdr)
+	if !icmpOk {
+		t.Fatal("Second header is not a ICMPv6 header")
+	}
+	// ping reply
+	if icmp.Type != 129 {
+		t.Error("ICMPv6 type", icmp.Type)
+	}
+	if icmp.Code != 0 {
+		t.Error("ICMPv6 code", icmp.Code)
+	}
+
+	// Leftover of our chopped payload
+	if len(p.Payload) != 32-8 {
+		t.Error("Wrong ICMPv6 payload length", len(p.Payload))
+	}
+}
+
+func TestDecodeIPv6FragmentEtc(t *testing.T) {
+	// IPv6 packet with 'fragment' extended header.
+	// This fragment is the final one, so we can't look at the protocol
+	// (packets are generated with `ping6 -p DEADBEEF -s 40000 somehost`)
+	p := &Packet{
+		DatalinkType: DLTEN10MB,
+		Data: []byte{
+			0x80, 0xee, 0x73, 0x83, 0x58, 0x8f, 0x1c, 0x3e, 0x84, 0x0e, 0x04,
+			0x63, 0x86, 0xdd, 0x60, 0x00, 0x00, 0x00, 0x03, 0x98, 0x2c, 0xff,
+			0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x3e, 0x84,
+			0xff, 0xfe, 0x0e, 0x04, 0x63, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x1d, 0xb4, 0x9c, 0x8c, 0x8d, 0x9c, 0xe2, 0xd5, 0x3a,
+			0x00, 0x98, 0xb8, 0x63, 0x21, 0x8d, 0x29, 0xde, 0xad, 0xbe, 0xef,
+			0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef,
+			// ... and quite a few more deadbeefs.
+		},
+	}
+	p.Decode()
+	if !bytes.Equal(p.SrcMac, []byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63}) {
+		// 1c:3e:84:0e:04:63
+		t.Errorf("Src mac %v", p.SrcMac)
+	}
+	if !bytes.Equal(p.DestMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+		// 80:ee:73:83:58:8f
+		t.Errorf("Dest mac %v", p.DestMac)
+	}
+	// Not the first fragment, so we can't look at the payload
+	if len(p.Headers) != 1 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+		return
+	}
+
+	ip, ipOk := p.Headers[0].(*IP6Hdr)
+	if !ipOk {
+		t.Fatal("First header is not an IPv6 header")
+	}
+	if ip.Version != 6 {
+		t.Error("ip Version", ip.Version)
+	}
+	if ip.Length != 920-8 {
+		// We chopped the test packet above.
+		t.Error("ipv6 payload length", ip.Length)
+	}
+	if ip.SrcAddr() != "fd00::1e3e:84ff:fe0e:463" {
+		t.Error("ipv6 src address", ip.SrcIP)
+	}
+	if ip.DestAddr() != "fd00::1db4:9c8c:8d9c:e2d5" {
+		t.Error("ipv6 dest address", ip.DestIP)
+	}
+	if !ip.Fragmented {
+		t.Error("not fragmented")
 	}
 }
