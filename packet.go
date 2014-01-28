@@ -79,9 +79,9 @@ func (p *Packet) Decode() {
 		version := uint8(p.Data[0]) >> 4
 		switch version {
 		case 4:
-			p.Type = TypeIP
+			p.Type = syscall.ETH_P_IP
 		case 6:
-			p.Type = TypeIP6
+			p.Type = syscall.ETH_P_IPV6
 		default:
 			log.Printf("unknown raw packet format")
 		}
@@ -91,13 +91,13 @@ func (p *Packet) Decode() {
 	}
 
 	switch p.Type {
-	case TypeIP:
+	case syscall.ETH_P_IP:
 		p.decodeIP()
-	case TypeIP6:
+	case syscall.ETH_P_IPV6:
 		p.decodeIP6()
-	case TypeARP:
+	case syscall.ETH_P_ARP:
 		p.decodeARP()
-	case TypeEAPOL:
+	case syscall.ETH_P_PAE:
 		// IEEE 802.1X.
 	default:
 		log.Printf("unknown protocol type for packet: %v", p.Type)
@@ -206,14 +206,14 @@ func (p *Packet) decodeIP() {
 	}
 
 	switch ip.Protocol {
-	case IPTCP:
+	case syscall.IPPROTO_TCP:
 		p.decodeTCP()
-	case IPUDP:
+	case syscall.IPPROTO_UDP:
 		p.decodeUDP()
-	case IPICMP:
+	case syscall.IPPROTO_ICMP:
 		p.decodeICMP()
 	// No ICMPv6
-	case IPInIP:
+	case syscall.IPPROTO_IPIP:
 		p.decodeIP()
 	}
 }
@@ -308,14 +308,14 @@ SWITCH:
 			goto SWITCH
 		}
 		p.decodeFragment(ip6.NextHeader)
-	case IPTCP:
+	case syscall.IPPROTO_TCP:
 		p.decodeTCP()
-	case IPUDP:
+	case syscall.IPPROTO_UDP:
 		p.decodeUDP()
 	// No ICMP (v4)
-	case IPICMPv6:
+	case syscall.IPPROTO_ICMPV6:
 		p.decodeICMPv6()
-	case IPInIP:
+	case syscall.IPPROTO_IPIP:
 		p.decodeIP()
 	}
 }
