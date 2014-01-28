@@ -55,79 +55,78 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 		t.Error("Src mac", p.SrcMac)
 	}
 	if len(p.Headers) != 2 {
-		t.Error("Incorrect number of headers", len(p.Headers))
-		return
+		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
-	if ip, ipOk := p.Headers[0].(*IPHdr); ipOk {
-		if ip.Version != 4 {
-			t.Error("ip Version", ip.Version)
-		}
-		if ip.Ihl != 5 {
-			t.Error("ip header length", ip.Ihl)
-		}
-		if ip.Tos != 0 {
-			t.Error("ip TOS", ip.Tos)
-		}
-		if ip.Length != 420 {
-			t.Error("ip Length", ip.Length)
-		}
-		if ip.ID != 14815 {
-			t.Error("ip ID", ip.ID)
-		}
-		if ip.Flags != 0x02 {
-			t.Error("ip Flags", ip.Flags)
-		}
-		if ip.FragOffset != 0 {
-			t.Error("ip Fragoffset", ip.FragOffset)
-		}
-		if ip.Ttl != 64 {
-			t.Error("ip TTL", ip.Ttl)
-		}
-		if ip.Protocol != 6 {
-			t.Error("ip Protocol", ip.Protocol)
-		}
-		if ip.Checksum != 0x555A {
-			t.Error("ip Checksum", ip.Checksum)
-		}
-		if !bytes.Equal(ip.SrcIP, []byte{172, 17, 81, 73}) {
-			t.Error("ip Src", ip.SrcIP)
-		}
-		if !bytes.Equal(ip.DestIP, []byte{173, 222, 254, 225}) {
-			t.Error("ip Dest", ip.DestIP)
-		}
-		if tcp, tcpOk := p.Headers[1].(*TCPHdr); tcpOk {
-			if tcp.SrcPort != 50679 {
-				t.Error("tcp srcport", tcp.SrcPort)
-			}
-			if tcp.DestPort != 80 {
-				t.Error("tcp destport", tcp.DestPort)
-			}
-			if tcp.Seq != 0xc57e0e48 {
-				t.Error("tcp seq", tcp.Seq)
-			}
-			if tcp.Ack != 0x49074232 {
-				t.Error("tcp ack", tcp.Ack)
-			}
-			if tcp.DataOffset != 8 {
-				t.Error("tcp dataoffset", tcp.DataOffset)
-			}
-			if tcp.Flags != 0x18 {
-				t.Error("tcp flags", tcp.Flags)
-			}
-			if tcp.Window != 0x73 {
-				t.Error("tcp window", tcp.Window)
-			}
-			if tcp.Checksum != 0xabb1 {
-				t.Error("tcp checksum", tcp.Checksum)
-			}
-			if tcp.Urgent != 0 {
-				t.Error("tcp urgent", tcp.Urgent)
-			}
-		} else {
-			t.Error("Second header is not TCP header")
-		}
-	} else {
-		t.Error("First header is not IP header")
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not IP header")
+	}
+	if ip.Version != 4 {
+		t.Error("ip Version", ip.Version)
+	}
+	if ip.Ihl != 5 {
+		t.Error("ip raw header length", ip.Ihl)
+	}
+	if ip.Tos != 0 {
+		t.Error("ip TOS", ip.Tos)
+	}
+	if ip.Length != 420 {
+		t.Error("ip Length", ip.Length)
+	}
+	if ip.ID != 14815 {
+		t.Error("ip ID", ip.ID)
+	}
+	if ip.Flags != 0x02 {
+		t.Error("ip Flags", ip.Flags)
+	}
+	if ip.FragmentOffset != 0 {
+		t.Error("ip Fragoffset", ip.FragmentOffset)
+	}
+	if ip.Ttl != 64 {
+		t.Error("ip TTL", ip.Ttl)
+	}
+	if ip.Protocol != 6 {
+		t.Error("ip Protocol", ip.Protocol)
+	}
+	if ip.Checksum != 0x555A {
+		t.Error("ip Checksum", ip.Checksum)
+	}
+	if !bytes.Equal(ip.SrcIP, []byte{172, 17, 81, 73}) {
+		t.Error("ip Src", ip.SrcIP)
+	}
+	if !bytes.Equal(ip.DestIP, []byte{173, 222, 254, 225}) {
+		t.Error("ip Dest", ip.DestIP)
+	}
+	tcp, tcpOk := p.Headers[1].(*TCPHdr)
+	if !tcpOk {
+		t.Fatal("Second header is not TCP header")
+	}
+	if tcp.SrcPort != 50679 {
+		t.Error("tcp srcport", tcp.SrcPort)
+	}
+	if tcp.DestPort != 80 {
+		t.Error("tcp destport", tcp.DestPort)
+	}
+	if tcp.Seq != 0xc57e0e48 {
+		t.Error("tcp seq", tcp.Seq)
+	}
+	if tcp.Ack != 0x49074232 {
+		t.Error("tcp ack", tcp.Ack)
+	}
+	if tcp.DataOffset != 8 {
+		t.Error("tcp dataoffset", tcp.DataOffset)
+	}
+	if tcp.Flags != 0x18 {
+		t.Error("tcp flags", tcp.Flags)
+	}
+	if tcp.Window != 0x73 {
+		t.Error("tcp window", tcp.Window)
+	}
+	if tcp.Checksum != 0xabb1 {
+		t.Error("tcp checksum", tcp.Checksum)
+	}
+	if tcp.Urgent != 0 {
+		t.Error("tcp urgent", tcp.Urgent)
 	}
 	if string(p.Payload) != "GET / HTTP/1.1\r\nHost: www.fish.com\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.2 (KHTML, like Gecko) Chrome/15.0.874.121 Safari/535.2\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip,deflate,sdch\r\nAccept-Language: en-US,en;q=0.8\r\nAccept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3\r\n\r\n" {
 		t.Error("--- PAYLOAD STRING ---\n", string(p.Payload), "\n--- PAYLOAD BYTES ---\n", p.Payload)
@@ -235,7 +234,6 @@ func TestDecodeLinuxCooked(t *testing.T) {
 	}
 	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
-		return
 	}
 
 	ip, ipOk := p.Headers[0].(*IPHdr)
@@ -246,7 +244,7 @@ func TestDecodeLinuxCooked(t *testing.T) {
 		t.Error("ip Version", ip.Version)
 	}
 	if ip.Ihl != 5 {
-		t.Error("ip header length", ip.Ihl)
+		t.Error("ip raw header length", ip.Ihl)
 	}
 
 	udp, udpOk := p.Headers[1].(*UDPHdr)
@@ -283,7 +281,6 @@ func TestDecodeRaw(t *testing.T) {
 	}
 	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
-		return
 	}
 
 	ip, ipOk := p.Headers[0].(*IPHdr)
@@ -294,7 +291,7 @@ func TestDecodeRaw(t *testing.T) {
 		t.Error("ip Version", ip.Version)
 	}
 	if ip.Ihl != 5 {
-		t.Error("ip header length", ip.Ihl)
+		t.Error("ip raw header length", ip.Ihl)
 	}
 
 	udp, udpOk := p.Headers[1].(*UDPHdr)
@@ -333,7 +330,6 @@ func TestDecodeICMPv6(t *testing.T) {
 	}
 	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
-		return
 	}
 
 	ip, ipOk := p.Headers[0].(*IP6Hdr)
@@ -352,13 +348,13 @@ func TestDecodeICMPv6(t *testing.T) {
 	if ip.DestAddr() != "ff02::1:ff0e:463" {
 		t.Error("ipv6 dest address", ip.DestIP)
 	}
-	if ip.Fragmented {
+	if ip.Fragmented() {
 		t.Error("not fragmented")
 	}
 
 	icmp, icmpOk := p.Headers[1].(*ICMPv6Hdr)
 	if !icmpOk {
-		t.Fatal("Second header is not a ICMPv6 header")
+		t.Fatal("Second header is not an ICMPv6 header")
 	}
 	if icmp.Type != 135 {
 		t.Error("ICMPv6 type", icmp.Type)
@@ -403,7 +399,6 @@ func TestDecodeIPv6FragmentFirst(t *testing.T) {
 	}
 	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
-		return
 	}
 
 	ip, ipOk := p.Headers[0].(*IP6Hdr)
@@ -413,7 +408,11 @@ func TestDecodeIPv6FragmentFirst(t *testing.T) {
 	if ip.Version != 6 {
 		t.Error("ip Version", ip.Version)
 	}
-	if ip.Length != 1448 {
+	if ip.Len() != 1496 {
+		// We chopped the test bytes above.
+		t.Error("ipv6 length", ip.Len())
+	}
+	if ip.PayloadLen() != 1448 {
 		// We chopped the test bytes above.
 		t.Error("ipv6 payload length", ip.Length)
 	}
@@ -423,13 +422,13 @@ func TestDecodeIPv6FragmentFirst(t *testing.T) {
 	if ip.DestAddr() != "fd00::1db4:9c8c:8d9c:e2d5" {
 		t.Error("ipv6 dest address", ip.DestIP)
 	}
-	if !ip.Fragmented {
+	if !ip.Fragmented() {
 		t.Error("not fragmented")
 	}
 
 	icmp, icmpOk := p.Headers[1].(*ICMPv6Hdr)
 	if !icmpOk {
-		t.Fatal("Second header is not a ICMPv6 header")
+		t.Fatal("Second header is not an ICMPv6 header")
 	}
 	// ping reply
 	if icmp.Type != 129 {
@@ -474,7 +473,6 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 	// Not the first fragment, so we can't look at the payload
 	if len(p.Headers) != 1 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
-		return
 	}
 
 	ip, ipOk := p.Headers[0].(*IP6Hdr)
@@ -484,9 +482,13 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 	if ip.Version != 6 {
 		t.Error("ip Version", ip.Version)
 	}
-	if ip.Length != 920-8 {
+	if ip.Len() != 960 {
 		// We chopped the test packet above.
-		t.Error("ipv6 payload length", ip.Length)
+		t.Error("ipv6 length", ip.Len())
+	}
+	if ip.PayloadLen() != 920-8 {
+		// We chopped the test packet above.
+		t.Error("ipv6 payload length", ip.PayloadLen())
 	}
 	if ip.SrcAddr() != "fd00::1e3e:84ff:fe0e:463" {
 		t.Error("ipv6 src address", ip.SrcIP)
@@ -494,7 +496,143 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 	if ip.DestAddr() != "fd00::1db4:9c8c:8d9c:e2d5" {
 		t.Error("ipv6 dest address", ip.DestIP)
 	}
-	if !ip.Fragmented {
+	if !ip.Fragmented() {
 		t.Error("not fragmented")
+	}
+	if ip.FragmentOffset != 4887 {
+		t.Error("Wrong raw fragment offset", ip.FragmentOffset)
+	}
+}
+
+func TestDecodeIPFragmentFirst(t *testing.T) {
+	// IPv4 fragmented packet.
+	// This is the first fragment, so we can analyze the payload.
+	// (packets are generated with `ping -p DEADBEEF -s 40000 somehost`)
+	p := &Packet{
+		DatalinkType: DLTEN10MB,
+		Data: []byte{
+			0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63, 0x80, 0xee, 0x73, 0x83, 0x58,
+			0x8f, 0x08, 0x00, 0x45, 0x00, 0x05, 0xdc, 0xa2, 0xe4, 0x20, 0x00,
+			0x40, 0x01, 0x2c, 0x69, 0xc0, 0xa8, 0x02, 0x6f, 0xc0, 0xa8, 0x02,
+			0x14, 0x08, 0x00, 0xc7, 0x5f, 0x2e, 0x2f, 0x00, 0x01, 0x9f, 0xf1,
+			0xe7, 0x52, 0x00, 0x00, 0x00, 0x00, 0x06, 0xc5, 0x0e, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef,
+			0xde, 0xad, 0xbe, 0xef,
+			// ... and quite a few more deadbeefs.
+		},
+	}
+	p.Decode()
+	if !bytes.Equal(p.SrcMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+		// 80:ee:73:83:58:8f
+		t.Errorf("Src mac %v", p.SrcMac)
+	}
+	if !bytes.Equal(p.DestMac, []byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63}) {
+		// 1c:3e:84:0e:04:63
+		t.Errorf("Dest mac %v", p.DestMac)
+	}
+	if len(p.Headers) != 2 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IPv4 header")
+	}
+	if ip.Version != 4 {
+		t.Error("ip Version", ip.Version)
+	}
+	if ip.Len() != 1500 {
+		// We chopped the test bytes above.
+		t.Error("ip length", ip.Length)
+	}
+	if ip.PayloadLen() != 1480 {
+		// We chopped the test bytes above.
+		t.Error("ip payload length", ip.PayloadLen())
+	}
+	if ip.SrcAddr() != "192.168.2.111" {
+		t.Error("ip src address", ip.SrcAddr())
+	}
+	if ip.DestAddr() != "192.168.2.20" {
+		t.Error("ip dest address", ip.DestAddr())
+	}
+	if !ip.Fragmented() {
+		t.Error("not fragmented")
+	}
+
+	icmp, icmpOk := p.Headers[1].(*ICMPHdr)
+	if !icmpOk {
+		t.Fatal("Second header is not an ICMP header")
+	}
+	// ping request
+	if icmp.Type != 8 {
+		t.Error("ICMP type", icmp.Type)
+	}
+	if icmp.Code != 0 {
+		t.Error("ICMP code", icmp.Code)
+	}
+
+	// Leftover of our chopped payload
+	if len(p.Payload) != 28 {
+		t.Error("Wrong ICMP payload length", len(p.Payload))
+	}
+}
+
+func TestDecodeIPFragmentLast(t *testing.T) {
+	// IPv4 fragmented packet.
+	// This is not the first fragment, so we can not analyze the payload.
+	// (packets are generated with `ping -p DEADBEEF -s 40000 somehost`)
+	p := &Packet{
+		DatalinkType: DLTEN10MB,
+		Data: []byte{
+			0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63, 0x80, 0xee, 0x73, 0x83, 0x58,
+			0x8f, 0x08, 0x00, 0x45, 0x00, 0x00, 0x44, 0xa2, 0xe4, 0x13, 0x83,
+			0x40, 0x01, 0x3e, 0x7e, 0xc0, 0xa8, 0x02, 0x6f, 0xc0, 0xa8, 0x02,
+			0x14, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad,
+			0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde,
+			0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef,
+			0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe,
+			0xef, 0xde, 0xad, 0xbe, 0xef,
+		},
+	}
+	p.Decode()
+	if !bytes.Equal(p.SrcMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+		// 80:ee:73:83:58:8f
+		t.Errorf("Src mac %v", p.SrcMac)
+	}
+	if !bytes.Equal(p.DestMac, []byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63}) {
+		// 1c:3e:84:0e:04:63
+		t.Errorf("Dest mac %v", p.DestMac)
+	}
+	if len(p.Headers) != 1 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IPv4 header")
+	}
+	if ip.Version != 4 {
+		t.Error("ip Version", ip.Version)
+	}
+	if ip.Len() != 68 {
+		t.Error("ip length", ip.Len())
+	}
+	if ip.PayloadLen() != 48 {
+		// We chopped the test bytes above.
+		t.Error("ip payload length", ip.PayloadLen())
+	}
+	if ip.SrcAddr() != "192.168.2.111" {
+		t.Error("ip src address", ip.SrcAddr())
+	}
+	if ip.DestAddr() != "192.168.2.20" {
+		t.Error("ip dest address", ip.DestAddr())
+	}
+	if !ip.Fragmented() {
+		t.Error("not fragmented")
+	}
+
+	if len(p.Payload) != 48 {
+		// Raw IP payload
+		t.Error("Wrong fragmented ICMP packet payload length", len(p.Payload))
 	}
 }

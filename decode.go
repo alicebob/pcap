@@ -146,18 +146,18 @@ func (arp *ARPHdr) Len() int {
 
 // IPHdr is the header of an IP packet.
 type IPHdr struct {
-	Version    uint8
-	Ihl        uint8
-	Tos        uint8
-	Length     uint16
-	ID         uint16
-	Flags      uint8
-	FragOffset uint16
-	Ttl        uint8
-	Protocol   uint8
-	Checksum   uint16
-	SrcIP      []byte
-	DestIP     []byte
+	Version        uint8
+	Ihl            uint8
+	Tos            uint8
+	Length         uint16
+	ID             uint16
+	Flags          uint8
+	FragmentOffset uint16
+	Ttl            uint8
+	Protocol       uint8
+	Checksum       uint16
+	SrcIP          []byte
+	DestIP         []byte
 }
 
 // SrcAddr returns the string version of the source IP.
@@ -166,8 +166,17 @@ func (ip *IPHdr) SrcAddr() string { return net.IP(ip.SrcIP).String() }
 // DestAddr returns the string version of the destination IP.
 func (ip *IPHdr) DestAddr() string { return net.IP(ip.DestIP).String() }
 
-// Len returns the ip.Length.
+// Len returns the total packet length (including headers)
 func (ip *IPHdr) Len() int { return int(ip.Length) }
+
+// PayloadLen returns the payload length of the packet
+func (ip *IPHdr) PayloadLen() int { return int(ip.Length - uint16(ip.Ihl*4)) }
+
+// Fragmented returns if the packet was fragmented
+func (ip *IPHdr) Fragmented() bool {
+	// Either the 'More Fragments' (MF) flag is set, or we have an offset.
+	return ip.FragmentOffset > 0 || (ip.Flags&1 != 0)
+}
 
 // TCPHdr is the header of a TCP packet.
 type TCPHdr struct {
@@ -303,8 +312,9 @@ type IP6Hdr struct {
 	HopLimit       uint8  // 8 bits
 	SrcIP          []byte // 16 bytes
 	DestIP         []byte // 16 bytes
-	Fragmented     bool   // Extended header
-	FragmentOffset uint16 // In 8-byte units
+	HasFragmented  bool   // Is an extended header
+	FragmentOffset uint16
+	payloadLen     uint16 // extended headers are substracted
 }
 
 // SrcAddr returns the string version of the source IP.
@@ -313,8 +323,17 @@ func (ip6 *IP6Hdr) SrcAddr() string { return net.IP(ip6.SrcIP).String() }
 // DestAddr returns the string version of the destination IP.
 func (ip6 *IP6Hdr) DestAddr() string { return net.IP(ip6.DestIP).String() }
 
-// Len returns the ip6.Length.
-func (ip6 *IP6Hdr) Len() int { return int(ip6.Length) }
+// Len returns the total length of the packet
+// 40 bytes are fixed header length
+func (ip6 *IP6Hdr) Len() int { return int(ip6.Length) + 40 }
+
+// PayloadLen returns the payload of the packet
+func (ip6 *IP6Hdr) PayloadLen() int { return int(ip6.payloadLen) }
+
+// Fragmented returns if the packet was fragmented
+func (ip6 *IP6Hdr) Fragmented() bool {
+	return ip6.HasFragmented
+}
 
 // ICMPv6Hdr is for ICMPv6
 type ICMPv6Hdr struct {

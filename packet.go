@@ -179,7 +179,7 @@ func (p *Packet) decodeIP() {
 	ip.ID = binary.BigEndian.Uint16(pkt[4:6])
 	flagsfrags := binary.BigEndian.Uint16(pkt[6:8])
 	ip.Flags = uint8(flagsfrags >> 13)
-	ip.FragOffset = flagsfrags & 0x1FFF
+	ip.FragmentOffset = (flagsfrags & 0x1FFF)
 	ip.Ttl = pkt[8]
 	ip.Protocol = pkt[9]
 	ip.Checksum = binary.BigEndian.Uint16(pkt[10:12])
@@ -189,12 +189,20 @@ func (p *Packet) decodeIP() {
 	if pEnd > len(pkt) {
 		pEnd = len(pkt)
 	}
-	pIhl := int(ip.Ihl) * 4
+	pIhl := int(ip.Ihl) * 4 // Ihl is in 4-byte units
 	if pIhl > pEnd {
 		pIhl = pEnd
 	}
 	p.Payload = pkt[pIhl:pEnd]
 	p.Headers = append(p.Headers, ip)
+
+	// Don't decode non-first fragmented parts.
+	// The 'More Fragments' (MF) flag is only set for the non-final packets.
+	// The first fragment of a fragmented datagram has MF set and offset 0. We
+	// do want to analyze that packet.
+	if ip.FragmentOffset > 0 {
+		return
+	}
 
 	switch ip.Protocol {
 	case IPTCP:
@@ -272,6 +280,7 @@ func (p *Packet) decodeIP6() {
 	ip6.TrafficClass = uint8((binary.BigEndian.Uint16(pkt[0:2]) >> 4) & 0x00FF)
 	ip6.FlowLabel = binary.BigEndian.Uint32(pkt[0:4]) & 0x000FFFFF
 	ip6.Length = binary.BigEndian.Uint16(pkt[4:6])
+	ip6.payloadLen = ip6.Length
 	ip6.NextHeader = pkt[6]
 	ip6.HopLimit = pkt[7]
 	ip6.SrcIP = pkt[8:24]
@@ -287,12 +296,13 @@ SWITCH:
 		if len(p.Payload) < 8 {
 			return
 		}
-		ip6.Length -= 8 // _we_ don't count headers as payload
+		ip6.payloadLen -= 8 // we don't count headers as payload
 		ip6.NextHeader = p.Payload[0]
-		ip6.Fragmented = true
-		ip6.FragmentOffset = binary.BigEndian.Uint16(p.Payload[2:4]) >> 3
+		ip6.HasFragmented = true
+		// Fragment offset comes in 8-byte units, we use the raw value
+		ip6.FragmentOffset = (binary.BigEndian.Uint16(p.Payload[2:4]) >> 3)
 		p.Payload = p.Payload[8:]
-		// Only look at the content for the first packet.
+		// Only look at the content of the first packet.
 		if ip6.FragmentOffset == 0 {
 			goto SWITCH
 		}
