@@ -2,6 +2,7 @@ package pcap
 
 import (
 	"bytes"
+	"syscall"
 	"testing"
 )
 
@@ -471,10 +472,11 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 		t.Errorf("Dest mac %v", p.DestMac)
 	}
 	// Not the first fragment, so we can't look at the payload
-	if len(p.Headers) != 1 {
+	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
+	// First header. IPv6.
 	ip, ipOk := p.Headers[0].(*IP6Hdr)
 	if !ipOk {
 		t.Fatal("First header is not an IPv6 header")
@@ -501,6 +503,19 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 	}
 	if ip.FragmentOffset != 4887 {
 		t.Error("Wrong raw fragment offset", ip.FragmentOffset)
+	}
+
+	// Fragment.
+	f, fOk := p.Headers[1].(*Fragment)
+	if !fOk {
+		t.Fatal("Second part is not an Fragment")
+	}
+	if f.Length != 12 {
+		// We truncated the testbytes above
+		t.Error("fragment length", f.Length)
+	}
+	if f.ProtocolID != syscall.IPPROTO_ICMPV6 {
+		t.Error("fragment protocol id", f.ProtocolID)
 	}
 }
 
@@ -603,7 +618,7 @@ func TestDecodeIPFragmentLast(t *testing.T) {
 		// 1c:3e:84:0e:04:63
 		t.Errorf("Dest mac %v", p.DestMac)
 	}
-	if len(p.Headers) != 1 {
+	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
@@ -631,8 +646,16 @@ func TestDecodeIPFragmentLast(t *testing.T) {
 		t.Error("not fragmented")
 	}
 
-	if len(p.Payload) != 48 {
-		// Raw IP payload
-		t.Error("Wrong fragmented ICMP packet payload length", len(p.Payload))
+	// Fragment.
+	f, fOk := p.Headers[1].(*Fragment)
+	if !fOk {
+		t.Fatal("Second part is not an Fragment")
+	}
+	if f.Length != 48 {
+		// We truncated the testbytes above
+		t.Error("fragment length", f.Length)
+	}
+	if f.ProtocolID != syscall.IPPROTO_ICMP {
+		t.Error("fragment protocol id", f.ProtocolID)
 	}
 }

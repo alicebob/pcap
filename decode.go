@@ -341,3 +341,9 @@ type ICMPv6Hdr struct {
 	Code     uint8
 	Checksum uint16
 }
+
+// Fragment of any protocol. Used for non-first fragments.
+type Fragment struct {
+	ProtocolID uint8
+	Length     int
+}

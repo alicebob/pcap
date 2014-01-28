@@ -201,6 +201,7 @@ func (p *Packet) decodeIP() {
 	// The first fragment of a fragmented datagram has MF set and offset 0. We
 	// do want to analyze that packet.
 	if ip.FragmentOffset > 0 {
+		p.decodeFragment(ip.Protocol)
 		return
 	}
 
@@ -306,6 +307,7 @@ SWITCH:
 		if ip6.FragmentOffset == 0 {
 			goto SWITCH
 		}
+		p.decodeFragment(ip6.NextHeader)
 	case IPTCP:
 		p.decodeTCP()
 	case IPUDP:
@@ -331,4 +333,13 @@ func (p *Packet) decodeICMPv6() {
 	// We don't look at extended ICMP
 	p.Payload = pkt[8:]
 	p.Headers = append(p.Headers, icmpv6)
+}
+
+// Datagram fragment
+func (p *Packet) decodeFragment(protoID uint8) {
+	f := new(Fragment)
+	f.ProtocolID = protoID
+	f.Length = len(p.Payload)
+	p.Headers = append(p.Headers, f)
+	// End of chain
 }
