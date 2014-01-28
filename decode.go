@@ -53,7 +53,7 @@ const (
 	DLTLINUXSSL = C.DLT_LINUX_SLL // Linux cooked
 )
 
-const errbufSize = 256
+const errbufSize = C.PCAP_ERRBUF_SIZE
 
 // LinkType constants according to pcap-linktype(7).
 const (
