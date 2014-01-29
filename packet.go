@@ -173,6 +173,9 @@ func (p *Packet) decodeIP() {
 	ip := new(IPHdr)
 
 	ip.Version = uint8(pkt[0]) >> 4
+	if ip.Version != 4 {
+		return
+	}
 	ip.Ihl = uint8(pkt[0]) & 0x0F
 	ip.Tos = pkt[1]
 	ip.Length = binary.BigEndian.Uint16(pkt[2:4])
@@ -278,6 +281,9 @@ func (p *Packet) decodeIP6() {
 	pkt := p.Payload
 	ip6 := new(IP6Hdr)
 	ip6.Version = uint8(pkt[0]) >> 4
+	if ip6.Version != 6 {
+		return
+	}
 	ip6.TrafficClass = uint8((binary.BigEndian.Uint16(pkt[0:2]) >> 4) & 0x00FF)
 	ip6.FlowLabel = binary.BigEndian.Uint32(pkt[0:4]) & 0x000FFFFF
 	ip6.Length = binary.BigEndian.Uint16(pkt[4:6])
