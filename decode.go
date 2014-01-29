@@ -18,12 +18,6 @@ const (
 	TypeIP6   = 0x86DD
 	TypeEAPOL = 0x888E
 
-	IPICMP   = 1
-	IPInIP   = 4
-	IPTCP    = 6
-	IPUDP    = 17
-	IPICMPv6 = 58
-
 	ARPHRD_ETHER = 1
 )
 

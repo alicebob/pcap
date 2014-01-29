@@ -11,6 +11,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -205,14 +206,14 @@ func (p *Packet) decodeIP() {
 	}
 
 	switch ip.Protocol {
-	case IPTCP:
+	case syscall.IPPROTO_TCP:
 		p.decodeTCP()
-	case IPUDP:
+	case syscall.IPPROTO_UDP:
 		p.decodeUDP()
-	case IPICMP:
+	case syscall.IPPROTO_ICMP:
 		p.decodeICMP()
 	// No ICMPv6
-	case IPInIP:
+	case syscall.IPPROTO_IPIP:
 		p.decodeIP()
 	}
 }
@@ -307,14 +308,14 @@ SWITCH:
 			goto SWITCH
 		}
 		p.decodeFragment(ip6.NextHeader)
-	case IPTCP:
+	case syscall.IPPROTO_TCP:
 		p.decodeTCP()
-	case IPUDP:
+	case syscall.IPPROTO_UDP:
 		p.decodeUDP()
 	// No ICMP (v4)
-	case IPICMPv6:
+	case syscall.IPPROTO_ICMPV6:
 		p.decodeICMPv6()
-	case IPInIP:
+	case syscall.IPPROTO_IPIP:
 		p.decodeIP()
 	}
 }
