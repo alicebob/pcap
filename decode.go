@@ -12,6 +12,20 @@ import (
 	"syscall"
 )
 
+// Type constants.
+const (
+	TypeIP    = syscall.ETH_P_IP
+	TypeARP   = syscall.ETH_P_ARP
+	TypeIP6   = syscall.ETH_P_IPV6
+	TypeEAPOL = syscall.ETH_P_PAE
+
+	IPICMP   = syscall.IPPROTO_ICMP
+	IPInIP   = syscall.IPPROTO_IPIP
+	IPTCP    = syscall.IPPROTO_TCP
+	IPUDP    = syscall.IPPROTO_UDP
+	IPICMPv6 = syscall.IPPROTO_ICMPV6
+)
+
 // Port from sf-pcap.c file.
 const (
 	TcpdumpMagic          = 0xa1b2c3d4
@@ -115,7 +129,7 @@ func (arp *ARPHdr) String() (s string) {
 	case 2:
 		s = "ARP Reply"
 	}
-	if arp.Addrtype == LinkTypeEthernet && arp.Protocol == syscall.ETH_P_IP {
+	if arp.Addrtype == LinkTypeEthernet && arp.Protocol == TypeIP {
 		s = fmt.Sprintf("%012x (%s) > %012x (%s)",
 			decodemac(arp.SourceHwAddress), arp.SourceProtAddress,
 			decodemac(arp.DestHwAddress), arp.DestProtAddress)
