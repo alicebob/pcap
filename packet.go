@@ -289,8 +289,12 @@ func (p *Packet) decodeIP6() {
 	p.Payload = pkt[40:]
 	p.Headers = append(p.Headers, ip6)
 
+	// Full list can be found
+	// http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 SWITCH:
 	switch ip6.NextHeader {
+	case syscall.IPPROTO_NONE:
+		//  Extended header: none after this
 	case syscall.IPPROTO_FRAGMENT:
 		// Extended header: fragmented packet. 8 bytes. rfc2460
 		// (we ignore the fragment information)
@@ -308,6 +312,25 @@ SWITCH:
 			goto SWITCH
 		}
 		p.decodeFragment(ip6.NextHeader)
+	case syscall.IPPROTO_HOPOPTS, // 0
+		syscall.IPPROTO_DSTOPTS, // 60
+		syscall.IPPROTO_ROUTING, // 43
+		syscall.IPPROTO_ESP,     // 50
+		syscall.IPPROTO_AH,      // 51
+		135,                     // MIPv6
+		139,                     // HIP
+		140,                     // SHIM6
+		253,                     // Experiments and testing
+		254:                     // Experiments and testing
+		// Various extended headers. We just skip them.
+		if len(p.Payload) < 2 {
+			return
+		}
+		ip6.NextHeader = p.Payload[0]
+		headerLength := (uint16(p.Payload[1]) + 1) * 8
+		ip6.payloadLen -= headerLength
+		p.Payload = p.Payload[headerLength:]
+		goto SWITCH
 	case syscall.IPPROTO_TCP:
 		p.decodeTCP()
 	case syscall.IPPROTO_UDP:
