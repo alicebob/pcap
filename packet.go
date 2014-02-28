@@ -29,8 +29,9 @@ type Packet struct {
 	DestMac []byte
 	SrcMac  []byte
 
-	Headers []interface{} // decoded headers, in order
-	Payload []byte        // remaining non-header bytes
+	Headers           []interface{} // decoded headers, in order
+	Payload           []byte        // remaining captured non-header bytes
+	FullPayloadLength int           // payload length, regardless what was captured
 }
 
 func supportedDatalink(id int) bool {
@@ -54,6 +55,7 @@ func (p *Packet) Decode() {
 		p.SrcMac = make([]byte, 6)
 		copy(p.SrcMac, p.Data[6:12])
 		p.Payload = p.Data[14:]
+		p.FullPayloadLength = int(p.Len - 14)
 	case C.DLT_LINUX_SLL:
 		// Linux cooked
 		// http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
@@ -70,12 +72,14 @@ func (p *Packet) Decode() {
 			copy(p.SrcMac, linkLayerAddress)
 		}
 		p.Payload = p.Data[16:]
+		p.FullPayloadLength = int(p.Len - 16)
 	case C.DLT_RAW:
 		// RAW. So this is IP, but it can be either v4 or v6.
 		if len(p.Data) < 20 {
 			return
 		}
 		p.Payload = p.Data
+		p.FullPayloadLength = int(p.Len)
 		version := uint8(p.Data[0]) >> 4
 		switch version {
 		case 4:
@@ -92,11 +96,11 @@ func (p *Packet) Decode() {
 
 	switch p.Type {
 	case TypeIP:
-		p.decodeIP()
+		p.decodeIP(p.FullPayloadLength)
 	case TypeIP6:
-		p.decodeIP6()
+		p.decodeIP6(p.FullPayloadLength)
 	case TypeARP:
-		p.decodeARP()
+		p.decodeARP(p.FullPayloadLength)
 	case TypeEAPOL:
 		// IEEE 802.1X.
 	default:
@@ -148,7 +152,7 @@ func (p *Packet) String() string {
 	return fmt.Sprintf("%s %s", p.Time, p.headerString(p.Headers))
 }
 
-func (p *Packet) decodeARP() {
+func (p *Packet) decodeARP(fullPayloadLength int) {
 	pkt := p.Payload
 	arp := new(ARPHdr)
 	arp.Addrtype = binary.BigEndian.Uint16(pkt[0:2])
@@ -162,10 +166,18 @@ func (p *Packet) decodeARP() {
 	arp.DestProtAddress = pkt[8+2*arp.HwAddressSize+arp.ProtAddressSize : 8+2*arp.HwAddressSize+2*arp.ProtAddressSize]
 
 	p.Headers = append(p.Headers, arp)
-	p.Payload = p.Payload[8+2*arp.HwAddressSize+2*arp.ProtAddressSize:]
+	headerLength := int(8 + 2*arp.HwAddressSize + 2*arp.ProtAddressSize)
+	p.Payload = p.Payload[headerLength:]
+	// ARP doesn't have any payload really, so we take the whole packet.
+	// Limit fullPayloadLength since the packet will have ethernet padding.
+	arp.PayloadLength = arp.Len()
+	if fullPayloadLength < arp.PayloadLength {
+		arp.PayloadLength = 0
+	}
+	// End of chain
 }
 
-func (p *Packet) decodeIP() {
+func (p *Packet) decodeIP(fullPayloadLength int) {
 	if len(p.Payload) < 20 {
 		return
 	}
@@ -188,6 +200,14 @@ func (p *Packet) decodeIP() {
 	ip.Checksum = binary.BigEndian.Uint16(pkt[10:12])
 	ip.SrcIP = pkt[12:16]
 	ip.DestIP = pkt[16:20]
+	ip.PayloadLength = int(ip.Length) - int(ip.Ihl)*4 // Ihl goes per 4 bytes
+	if fullPayloadLength < ip.PayloadLength {
+		// Captured packet was shorter than what was expected.
+		ip.PayloadLength = fullPayloadLength
+	}
+	if ip.PayloadLength < 0 {
+		ip.PayloadLength = 0
+	}
 	pEnd := int(ip.Length)
 	if pEnd > len(pkt) {
 		pEnd = len(pkt)
@@ -204,24 +224,26 @@ func (p *Packet) decodeIP() {
 	// The first fragment of a fragmented datagram has MF set and offset 0. We
 	// do want to analyze that packet.
 	if ip.FragmentOffset > 0 {
-		p.decodeFragment(ip.Protocol)
+		p.decodeFragment(ip.Protocol, ip.PayloadLength)
 		return
 	}
 
 	switch ip.Protocol {
 	case syscall.IPPROTO_TCP:
-		p.decodeTCP()
+		p.decodeTCP(ip.PayloadLength)
 	case syscall.IPPROTO_UDP:
-		p.decodeUDP()
+		p.decodeUDP(ip.PayloadLength)
 	case syscall.IPPROTO_ICMP:
-		p.decodeICMP()
+		p.decodeICMP(ip.PayloadLength)
 	// No ICMPv6
 	case syscall.IPPROTO_IPIP:
-		p.decodeIP()
+		p.decodeIP(ip.PayloadLength)
 	}
 }
 
-func (p *Packet) decodeTCP() {
+// decodeTCP looks at the fields in payload. The complete capture length of the
+// payload is passed in via payloadLength.
+func (p *Packet) decodeTCP(payloadLength int) {
 	pLenPayload := len(p.Payload)
 	if pLenPayload < 20 {
 		return
@@ -241,11 +263,15 @@ func (p *Packet) decodeTCP() {
 	if pDataOffset > pLenPayload {
 		pDataOffset = pLenPayload
 	}
+	tcp.PayloadLength = payloadLength - pDataOffset
 	p.Payload = pkt[pDataOffset:]
 	p.Headers = append(p.Headers, tcp)
+	// End of chain
 }
 
-func (p *Packet) decodeUDP() {
+// decodeUDP looks at the fields in payload. The complete capture length of the
+// payload is passed in via payloadLength.
+func (p *Packet) decodeUDP(payloadLength int) {
 	if len(p.Payload) < 8 {
 		return
 	}
@@ -255,11 +281,13 @@ func (p *Packet) decodeUDP() {
 	udp.DestPort = binary.BigEndian.Uint16(pkt[2:4])
 	udp.Length = binary.BigEndian.Uint16(pkt[4:6])
 	udp.Checksum = binary.BigEndian.Uint16(pkt[6:8])
+	udp.PayloadLength = payloadLength - 8
 	p.Headers = append(p.Headers, udp)
 	p.Payload = pkt[8:]
+	// End of chain
 }
 
-func (p *Packet) decodeICMP() {
+func (p *Packet) decodeICMP(payloadLength int) {
 	if len(p.Payload) < 8 {
 		return
 	}
@@ -271,10 +299,12 @@ func (p *Packet) decodeICMP() {
 	// [4:8] are reserved and Type dependent
 	// We don't look at extended ICMP
 	p.Payload = pkt[8:]
+	icmp.PayloadLength = payloadLength - 8
 	p.Headers = append(p.Headers, icmp)
+	// End of chain
 }
 
-func (p *Packet) decodeIP6() {
+func (p *Packet) decodeIP6(fullPayloadLength int) {
 	if len(p.Payload) < 40 {
 		return
 	}
@@ -287,7 +317,11 @@ func (p *Packet) decodeIP6() {
 	ip6.TrafficClass = uint8((binary.BigEndian.Uint16(pkt[0:2]) >> 4) & 0x00FF)
 	ip6.FlowLabel = binary.BigEndian.Uint32(pkt[0:4]) & 0x000FFFFF
 	ip6.Length = binary.BigEndian.Uint16(pkt[4:6])
-	ip6.payloadLen = ip6.Length
+	ip6.PayloadLength = int(ip6.Length) // will be adjusted below
+	if ip6.PayloadLength > fullPayloadLength {
+		// Less bytes received than expected
+		ip6.PayloadLength = fullPayloadLength
+	}
 	ip6.NextHeader = pkt[6]
 	ip6.HopLimit = pkt[7]
 	ip6.SrcIP = pkt[8:24]
@@ -307,7 +341,7 @@ SWITCH:
 		if len(p.Payload) < 8 {
 			return
 		}
-		ip6.payloadLen -= 8 // we don't count headers as payload
+		ip6.PayloadLength -= 8 // we don't count headers as payload
 		ip6.NextHeader = p.Payload[0]
 		ip6.HasFragmented = true
 		// Fragment offset comes in 8-byte units, we use the raw value
@@ -317,7 +351,7 @@ SWITCH:
 		if ip6.FragmentOffset == 0 {
 			goto SWITCH
 		}
-		p.decodeFragment(ip6.NextHeader)
+		p.decodeFragment(ip6.NextHeader, ip6.PayloadLength)
 	case syscall.IPPROTO_HOPOPTS, // 0
 		syscall.IPPROTO_DSTOPTS, // 60
 		syscall.IPPROTO_ROUTING, // 43
@@ -333,23 +367,23 @@ SWITCH:
 			return
 		}
 		ip6.NextHeader = p.Payload[0]
-		headerLength := (uint16(p.Payload[1]) + 1) * 8
-		ip6.payloadLen -= headerLength
+		headerLength := (int(p.Payload[1]) + 1) * 8
+		ip6.PayloadLength -= headerLength
 		p.Payload = p.Payload[headerLength:]
 		goto SWITCH
 	case syscall.IPPROTO_TCP:
-		p.decodeTCP()
+		p.decodeTCP(ip6.PayloadLength)
 	case syscall.IPPROTO_UDP:
-		p.decodeUDP()
+		p.decodeUDP(ip6.PayloadLength)
 	// No ICMP (v4)
 	case syscall.IPPROTO_ICMPV6:
-		p.decodeICMPv6()
+		p.decodeICMPv6(ip6.PayloadLength)
 	case syscall.IPPROTO_IPIP:
-		p.decodeIP()
+		p.decodeIP(ip6.PayloadLength)
 	}
 }
 
-func (p *Packet) decodeICMPv6() {
+func (p *Packet) decodeICMPv6(payloadLength int) {
 	if len(p.Payload) < 8 {
 		return
 	}
@@ -361,14 +395,17 @@ func (p *Packet) decodeICMPv6() {
 	// [4:8] are reserved and Type dependent
 	// We don't look at extended ICMP
 	p.Payload = pkt[8:]
+	icmpv6.PayloadLength = payloadLength - 8
 	p.Headers = append(p.Headers, icmpv6)
+	// End of chain
 }
 
 // Datagram fragment
-func (p *Packet) decodeFragment(protoID uint8) {
+func (p *Packet) decodeFragment(protoID uint8, payloadLength int) {
 	f := new(Fragment)
 	f.ProtocolID = protoID
 	f.Length = len(p.Payload)
+	f.PayloadLength = payloadLength // It's all payload.
 	p.Headers = append(p.Headers, f)
 	// End of chain
 }

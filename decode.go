@@ -115,6 +115,7 @@ type ARPHdr struct {
 	SourceProtAddress []byte
 	DestHwAddress     []byte
 	DestProtAddress   []byte
+	PayloadLength     int
 }
 
 func (arp *ARPHdr) String() (s string) {
@@ -134,7 +135,7 @@ func (arp *ARPHdr) String() (s string) {
 	return
 }
 
-// Len returns the (calculated) ARP payload length.
+// Len returns the (calculated) ARP total length.
 func (arp *ARPHdr) Len() int {
 	return int(8 + 2*arp.HwAddressSize + 2*arp.ProtAddressSize)
 }
@@ -153,6 +154,7 @@ type IPHdr struct {
 	Checksum       uint16
 	SrcIP          []byte
 	DestIP         []byte
+	PayloadLength  int
 }
 
 // SrcAddr returns the string version of the source IP.
@@ -164,9 +166,6 @@ func (ip *IPHdr) DestAddr() string { return net.IP(ip.DestIP).String() }
 // Len returns the total packet length (including headers)
 func (ip *IPHdr) Len() int { return int(ip.Length) }
 
-// PayloadLen returns the payload length of the packet
-func (ip *IPHdr) PayloadLen() int { return int(ip.Length - uint16(ip.Ihl*4)) }
-
 // Fragmented returns if the packet was fragmented
 func (ip *IPHdr) Fragmented() bool {
 	// Either the 'More Fragments' (MF) flag is set, or we have an offset.
@@ -175,16 +174,17 @@ func (ip *IPHdr) Fragmented() bool {
 
 // TCPHdr is the header of a TCP packet.
 type TCPHdr struct {
-	SrcPort    uint16
-	DestPort   uint16
-	Seq        uint32
-	Ack        uint32
-	DataOffset uint8
-	Flags      uint16
-	Window     uint16
-	Checksum   uint16
-	Urgent     uint16
-	Data       []byte
+	SrcPort       uint16
+	DestPort      uint16
+	Seq           uint32
+	Ack           uint32
+	DataOffset    uint8
+	Flags         uint16
+	Window        uint16
+	Checksum      uint16
+	Urgent        uint16
+	Data          []byte
+	PayloadLength int
 }
 
 // TCP flags.
@@ -242,10 +242,11 @@ func (tcp *TCPHdr) FlagsString() string {
 
 // UDPHdr is the header of a UDP packet.
 type UDPHdr struct {
-	SrcPort  uint16
-	DestPort uint16
-	Length   uint16
-	Checksum uint16
+	SrcPort       uint16
+	DestPort      uint16
+	Length        uint16
+	Checksum      uint16
+	PayloadLength int
 }
 
 func (udp *UDPHdr) String(hdr addrHdr) string {
@@ -256,12 +257,13 @@ func (udp *UDPHdr) String(hdr addrHdr) string {
 
 // ICMPHdr is the header of an ICMP packet.
 type ICMPHdr struct {
-	Type     uint8
-	Code     uint8
-	Checksum uint16
-	ID       uint16
-	Seq      uint16
-	Data     []byte
+	Type          uint8
+	Code          uint8
+	Checksum      uint16
+	ID            uint16
+	Seq           uint16
+	Data          []byte
+	PayloadLength int
 }
 
 // String TODO
@@ -309,7 +311,7 @@ type IP6Hdr struct {
 	DestIP         []byte // 16 bytes
 	HasFragmented  bool   // Is an extended header
 	FragmentOffset uint16
-	payloadLen     uint16 // extended headers are substracted
+	PayloadLength  int
 }
 
 // SrcAddr returns the string version of the source IP.
@@ -322,9 +324,6 @@ func (ip6 *IP6Hdr) DestAddr() string { return net.IP(ip6.DestIP).String() }
 // 40 bytes are fixed header length
 func (ip6 *IP6Hdr) Len() int { return int(ip6.Length) + 40 }
 
-// PayloadLen returns the payload of the packet
-func (ip6 *IP6Hdr) PayloadLen() int { return int(ip6.payloadLen) }
-
 // Fragmented returns if the packet was fragmented
 func (ip6 *IP6Hdr) Fragmented() bool {
 	return ip6.HasFragmented
@@ -332,13 +331,15 @@ func (ip6 *IP6Hdr) Fragmented() bool {
 
 // ICMPv6Hdr is for ICMPv6
 type ICMPv6Hdr struct {
-	Type     uint8
-	Code     uint8
-	Checksum uint16
+	Type          uint8
+	Code          uint8
+	Checksum      uint16
+	PayloadLength int
 }
 
 // Fragment of any protocol. Used for non-first fragments.
 type Fragment struct {
-	ProtocolID uint8
-	Length     int
+	ProtocolID    uint8
+	Length        int
+	PayloadLength int
 }

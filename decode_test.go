@@ -47,7 +47,9 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 			0x2d, 0x31, 0x2c, 0x75, 0x74, 0x66, 0x2d, 0x38, 0x3b, 0x71, 0x3d, 0x30,
 			0x2e, 0x37, 0x2c, 0x2a, 0x3b, 0x71, 0x3d, 0x30, 0x2e, 0x33, 0x0d, 0x0a,
 			0x0d, 0x0a,
-		}}
+		},
+		Len: 434,
+	}
 	p.Decode()
 	if !bytes.Equal(p.DestMac, []byte{0, 0, 0x0c, 0x9f, 0xf0, 0x20}) {
 		t.Error("Dest mac", p.DestMac)
@@ -98,6 +100,10 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 	if !bytes.Equal(ip.DestIP, []byte{173, 222, 254, 225}) {
 		t.Error("ip Dest", ip.DestIP)
 	}
+	if ip.PayloadLength != 400 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
+
 	tcp, tcpOk := p.Headers[1].(*TCPHdr)
 	if !tcpOk {
 		t.Fatal("Second header is not TCP header")
@@ -129,6 +135,9 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 	if tcp.Urgent != 0 {
 		t.Error("tcp urgent", tcp.Urgent)
 	}
+	if tcp.PayloadLength != 368 {
+		t.Error("ip PayloadLength", tcp.PayloadLength)
+	}
 	if string(p.Payload) != "GET / HTTP/1.1\r\nHost: www.fish.com\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.2 (KHTML, like Gecko) Chrome/15.0.874.121 Safari/535.2\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip,deflate,sdch\r\nAccept-Language: en-US,en;q=0.8\r\nAccept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3\r\n\r\n" {
 		t.Error("--- PAYLOAD STRING ---\n", string(p.Payload), "\n--- PAYLOAD BYTES ---\n", p.Payload)
 	}
@@ -147,7 +156,9 @@ func TestDecodeSmallTcpPacketHasEmptyPayload(t *testing.T) {
 			0x3f, 0x9f, 0xac, 0x11, 0x51, 0xc5, 0xac, 0x11, 0x51, 0x49, 0x00, 0x63,
 			0x9a, 0xef, 0x00, 0x00, 0x00, 0x00, 0x2e, 0xc1, 0x27, 0x83, 0x50, 0x14,
 			0x00, 0x00, 0xc3, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		}}
+		},
+		Len: 60,
+	}
 	p.Decode()
 	if p.Payload == nil {
 		t.Error("Nil payload")
@@ -155,24 +166,54 @@ func TestDecodeSmallTcpPacketHasEmptyPayload(t *testing.T) {
 	if len(p.Payload) != 0 {
 		t.Error("Non-empty payload:", p.Payload)
 	}
+
+	if len(p.Headers) != 2 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IP header")
+	}
+	if ip.PayloadLength != 20 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
+	tcp, tcpOk := p.Headers[1].(*TCPHdr)
+	if !tcpOk {
+		t.Fatal("Second header is not a TCP header")
+	}
+	if tcp.PayloadLength != 0 {
+		t.Error("tcp PayloadLength", tcp.PayloadLength)
+	}
 }
 
 func TestDecodeMaliciousIPHeaderLength(t *testing.T) {
+	// Wrong header length. It'll 'use' the whole packet.
 	p := &Packet{
-		// This packet is only 54 bits (an empty TCP RST), thus 6 trailing null
-		// bytes are added by the ethernet layer to make it the minimum packet size.
 		DatalinkType: DLTEN10MB,
 		Data: []byte{
 			0xbc, 0x30, 0x5b, 0xe8, 0xd3, 0x49, 0xb8, 0xac, 0x6f, 0x92, 0xd5, 0xbf,
-			0x08, 0x00, 0x4f, 0x00, 0x00, 0x28, 0x00, 0x00, 0x40, 0x00, 0x40, 0x06,
+			0x08, 0x00, 0x4f /* <-- */, 0x00, 0x00, 0x28, 0x00, 0x00, 0x40, 0x00, 0x40, 0x06,
 			0x3f, 0x9f, 0xac, 0x11, 0x51, 0xc5, 0xac, 0x11, 0x51, 0x49, 0x00, 0x63,
 			0x9a, 0xef, 0x00, 0x00, 0x00, 0x00, 0x2e, 0xc1, 0x27, 0x83, 0x50, 0x14,
 			0x00, 0x00, 0xc3, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		}}
+		},
+		Len: 60,
+	}
 	p.Decode()
+
+	if len(p.Headers) != 1 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IP header")
+	}
+	if ip.PayloadLength != 0 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
 }
 
-func TestDecodeTruncatedUpperLayer(t *testing.T) {
+func TestDecodeTruncatedUpperLayerTCP(t *testing.T) {
 	// TCP
 	p := &Packet{
 		DatalinkType: DLTEN10MB,
@@ -182,9 +223,24 @@ func TestDecodeTruncatedUpperLayer(t *testing.T) {
 			0x55, 0x5a, 0xac, 0x11, 0x51, 0x49, 0xad, 0xde, 0xfe, 0xe1, 0xc5,
 		}}
 	p.Decode()
+	if len(p.Headers) != 1 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IP header")
+	}
+	if len(p.Payload) != 1 {
+		t.Error("len Payload", len(p.Payload))
+	}
+	if ip.PayloadLength != 400 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
+}
 
+func TestDecodeTruncatedUpperLayerICMP(t *testing.T) {
 	// ICMP
-	p = &Packet{
+	p := &Packet{
 		DatalinkType: DLTEN10MB,
 		Data: []byte{
 			0x00, 0x00, 0x0c, 0x9f, 0xf0, 0x20, 0xbc, 0x30, 0x5b, 0xe8, 0xd3, 0x49,
@@ -192,9 +248,24 @@ func TestDecodeTruncatedUpperLayer(t *testing.T) {
 			0x55, 0x5a, 0xac, 0x11, 0x51, 0x49, 0xad, 0xde, 0xfe, 0xe1, 0xc5,
 		}}
 	p.Decode()
+	if len(p.Headers) != 1 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IP header")
+	}
+	if len(p.Payload) != 1 {
+		t.Error("len Payload", len(p.Payload))
+	}
+	if ip.PayloadLength != 400 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
+}
 
+func TestDecodeTruncatedUpperLayerUDP(t *testing.T) {
 	// UDP
-	p = &Packet{
+	p := &Packet{
 		DatalinkType: DLTEN10MB,
 		Data: []byte{
 			0x00, 0x00, 0x0c, 0x9f, 0xf0, 0x20, 0xbc, 0x30, 0x5b, 0xe8, 0xd3, 0x49,
@@ -202,6 +273,19 @@ func TestDecodeTruncatedUpperLayer(t *testing.T) {
 			0x55, 0x5a, 0xac, 0x11, 0x51, 0x49, 0xad, 0xde, 0xfe, 0xe1, 0xc5,
 		}}
 	p.Decode()
+	if len(p.Headers) != 1 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IP header")
+	}
+	if len(p.Payload) != 1 {
+		t.Error("len Payload", len(p.Payload))
+	}
+	if ip.PayloadLength != 400 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
 }
 
 func TestDecodeMaliciousTCPDataOffset(t *testing.T) {
@@ -216,6 +300,23 @@ func TestDecodeMaliciousTCPDataOffset(t *testing.T) {
 			0x37, 0x9c, 0x42, 0x77, 0x5e, 0x3a,
 		}}
 	p.Decode()
+	if len(p.Headers) != 2 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+	ip, ipOk := p.Headers[0].(*IPHdr)
+	if !ipOk {
+		t.Fatal("First header is not an IP header")
+	}
+	if ip.PayloadLength != 400 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
+	tcp, tcpOk := p.Headers[1].(*TCPHdr)
+	if !tcpOk {
+		t.Fatal("Second header is not a TCP header")
+	}
+	if tcp.PayloadLength != 368 {
+		t.Error("tcp PayloadLength", tcp.PayloadLength)
+	}
 }
 
 func TestDecodeLinuxCooked(t *testing.T) {
@@ -223,8 +324,14 @@ func TestDecodeLinuxCooked(t *testing.T) {
 	p := &Packet{
 		DatalinkType: DLTLINUXSSL,
 		Data: []byte{
-			0x00, 0x04, 0xff, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x45, 0x00, 0x00, 0x30, 0x3f, 0xbc, 0x00, 0x00, 0x40, 0x11, 0x59, 0xb1, 0x2e, 0xf6, 0x22, 0xa4, 0x5c, 0x81, 0x33, 0x35, 0x1a, 0xe1, 0xd3, 0x99, 0x00, 0x1c, 0x8d, 0xe4, 0x21, 0x00, 0x80, 0x98, 0x45, 0x23, 0xde, 0x2a, 0xca, 0x0d, 0xc1, 0x5c, 0x06, 0x3f, 0xfa, 0x89, 0x65, 0xe9, 0xeb, 0x02,
+			0x00, 0x04, 0xff, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x08, 0x00, 0x45, 0x00, 0x00, 0x30, 0x3f, 0xbc,
+			0x00, 0x00, 0x40, 0x11, 0x59, 0xb1, 0x2e, 0xf6, 0x22, 0xa4, 0x5c,
+			0x81, 0x33, 0x35, 0x1a, 0xe1, 0xd3, 0x99, 0x00, 0x1c, 0x8d, 0xe4,
+			0x21, 0x00, 0x80, 0x98, 0x45, 0x23, 0xde, 0x2a, 0xca, 0x0d, 0xc1,
+			0x5c, 0x06, 0x3f, 0xfa, 0x89, 0x65, 0xe9, 0xeb, 0x02,
 		},
+		Len: 64,
 	}
 	p.Decode()
 	if p.DestMac != nil {
@@ -247,6 +354,9 @@ func TestDecodeLinuxCooked(t *testing.T) {
 	if ip.Ihl != 5 {
 		t.Error("ip raw header length", ip.Ihl)
 	}
+	if ip.PayloadLength != 28 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
 
 	udp, udpOk := p.Headers[1].(*UDPHdr)
 	if !udpOk {
@@ -257,6 +367,9 @@ func TestDecodeLinuxCooked(t *testing.T) {
 	}
 	if udp.DestPort != 54169 {
 		t.Error("udp destport", udp.DestPort)
+	}
+	if udp.PayloadLength != 20 {
+		t.Error("udp PayloadLength", udp.PayloadLength)
 	}
 
 	// Leftover payload (so this is UDP payload)
@@ -270,8 +383,12 @@ func TestDecodeRaw(t *testing.T) {
 	p := &Packet{
 		DatalinkType: DLTRAW,
 		Data: []byte{
-			0x45, 0x00, 0x00, 0x2c, 0x71, 0x7f, 0x00, 0x00, 0x01, 0x11, 0x0f, 0xaf, 0x2e, 0xf6, 0x29, 0x9c, 0xe0, 0x00, 0x00, 0x01, 0xf9, 0x15, 0x21, 0xa4, 0x00, 0x18, 0x10, 0xde, 0x50, 0x4e, 0x4a, 0x42, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x45, 0x00, 0x00, 0x2c, 0x71, 0x7f, 0x00, 0x00, 0x01, 0x11, 0x0f,
+			0xaf, 0x2e, 0xf6, 0x29, 0x9c, 0xe0, 0x00, 0x00, 0x01, 0xf9, 0x15,
+			0x21, 0xa4, 0x00, 0x18, 0x10, 0xde, 0x50, 0x4e, 0x4a, 0x42, 0x01,
+			0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		},
+		Len: 24,
 	}
 	p.Decode()
 	if p.DestMac != nil {
@@ -294,6 +411,9 @@ func TestDecodeRaw(t *testing.T) {
 	if ip.Ihl != 5 {
 		t.Error("ip raw header length", ip.Ihl)
 	}
+	if ip.PayloadLength != 24 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
 
 	udp, udpOk := p.Headers[1].(*UDPHdr)
 	if !udpOk {
@@ -304,6 +424,9 @@ func TestDecodeRaw(t *testing.T) {
 	}
 	if udp.DestPort != 8612 {
 		t.Error("udp destport", udp.DestPort)
+	}
+	if udp.PayloadLength != 16 {
+		t.Error("udp PayloadLength", udp.PayloadLength)
 	}
 
 	// Leftover payload (so this is UDP payload)
@@ -317,8 +440,16 @@ func TestDecodeICMPv6(t *testing.T) {
 	p := &Packet{
 		DatalinkType: DLTEN10MB,
 		Data: []byte{
-			0x33, 0x33, 0xff, 0x0e, 0x04, 0x63, 0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d, 0x86, 0xdd, 0x60, 0x00, 0x00, 0x00, 0x00, 0x20, 0x3a, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x96, 0xd7, 0xff, 0xfe, 0x07, 0x93, 0x0d, 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xff, 0x0e, 0x04, 0x63, 0x87, 0x00, 0xef, 0x25, 0x00, 0x00, 0x00, 0x00, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x3e, 0x84, 0xff, 0xfe, 0x0e, 0x04, 0x63, 0x01, 0x01, 0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d,
+			0x33, 0x33, 0xff, 0x0e, 0x04, 0x63, 0x08, 0x96, 0xd7, 0x07, 0x93,
+			0x0d, 0x86, 0xdd, 0x60, 0x00, 0x00, 0x00, 0x00, 0x20, 0x3a, 0xff,
+			0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x96, 0xd7,
+			0xff, 0xfe, 0x07, 0x93, 0x0d, 0xff, 0x02, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xff, 0x0e, 0x04, 0x63, 0x87,
+			0x00, 0xef, 0x25, 0x00, 0x00, 0x00, 0x00, 0xfd, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x1e, 0x3e, 0x84, 0xff, 0xfe, 0x0e, 0x04,
+			0x63, 0x01, 0x01, 0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d,
 		},
+		Len: 86,
 	}
 	p.Decode()
 	if !bytes.Equal(p.DestMac, []byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63}) {
@@ -352,6 +483,9 @@ func TestDecodeICMPv6(t *testing.T) {
 	if ip.Fragmented() {
 		t.Error("not fragmented")
 	}
+	if ip.PayloadLength != 32 {
+		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
 
 	icmp, icmpOk := p.Headers[1].(*ICMPv6Hdr)
 	if !icmpOk {
@@ -362,6 +496,9 @@ func TestDecodeICMPv6(t *testing.T) {
 	}
 	if icmp.Code != 0 {
 		t.Error("ICMPv6 code", icmp.Code)
+	}
+	if icmp.PayloadLength != 32-8 {
+		t.Error("icmp PayloadLength", icmp.PayloadLength)
 	}
 
 	// Leftover payload (so this is ICMPv6's payload)
@@ -413,9 +550,9 @@ func TestDecodeIPv6FragmentFirst(t *testing.T) {
 		// We chopped the test bytes above.
 		t.Error("ipv6 length", ip.Len())
 	}
-	if ip.PayloadLen() != 1448 {
+	if ip.PayloadLength != 1448 {
 		// We chopped the test bytes above.
-		t.Error("ipv6 payload length", ip.Length)
+		t.Error("ipv6 PayloadLength", ip.PayloadLength)
 	}
 	if ip.SrcAddr() != "fd00::1e3e:84ff:fe0e:463" {
 		t.Error("ipv6 src address", ip.SrcIP)
@@ -437,6 +574,9 @@ func TestDecodeIPv6FragmentFirst(t *testing.T) {
 	}
 	if icmp.Code != 0 {
 		t.Error("ICMPv6 code", icmp.Code)
+	}
+	if icmp.PayloadLength != 1448-8 {
+		t.Error("icmp PayloadLength", icmp.PayloadLength)
 	}
 
 	// Leftover of our chopped payload
@@ -488,9 +628,9 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 		// We chopped the test packet above.
 		t.Error("ipv6 length", ip.Len())
 	}
-	if ip.PayloadLen() != 920-8 {
+	if ip.PayloadLength != 920-8 {
 		// We chopped the test packet above.
-		t.Error("ipv6 payload length", ip.PayloadLen())
+		t.Error("ipv6 payload length", ip.PayloadLength)
 	}
 	if ip.SrcAddr() != "fd00::1e3e:84ff:fe0e:463" {
 		t.Error("ipv6 src address", ip.SrcIP)
@@ -516,6 +656,9 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 	}
 	if f.ProtocolID != syscall.IPPROTO_ICMPV6 {
 		t.Error("fragment protocol id", f.ProtocolID)
+	}
+	if f.PayloadLength != 920-8 {
+		t.Error("fragment PayloadLength", f.PayloadLength)
 	}
 }
 
@@ -560,9 +703,9 @@ func TestDecodeIPFragmentFirst(t *testing.T) {
 		// We chopped the test bytes above.
 		t.Error("ip length", ip.Length)
 	}
-	if ip.PayloadLen() != 1480 {
+	if ip.PayloadLength != 1480 {
 		// We chopped the test bytes above.
-		t.Error("ip payload length", ip.PayloadLen())
+		t.Error("ip payload length", ip.PayloadLength)
 	}
 	if ip.SrcAddr() != "192.168.2.111" {
 		t.Error("ip src address", ip.SrcAddr())
@@ -584,6 +727,9 @@ func TestDecodeIPFragmentFirst(t *testing.T) {
 	}
 	if icmp.Code != 0 {
 		t.Error("ICMP code", icmp.Code)
+	}
+	if icmp.PayloadLength != 1480-8 {
+		t.Error("icmp PayloadLength", icmp.PayloadLength)
 	}
 
 	// Leftover of our chopped payload
@@ -632,9 +778,9 @@ func TestDecodeIPFragmentLast(t *testing.T) {
 	if ip.Len() != 68 {
 		t.Error("ip length", ip.Len())
 	}
-	if ip.PayloadLen() != 48 {
+	if ip.PayloadLength != 48 {
 		// We chopped the test bytes above.
-		t.Error("ip payload length", ip.PayloadLen())
+		t.Error("ip payload length", ip.PayloadLength)
 	}
 	if ip.SrcAddr() != "192.168.2.111" {
 		t.Error("ip src address", ip.SrcAddr())
@@ -657,6 +803,9 @@ func TestDecodeIPFragmentLast(t *testing.T) {
 	}
 	if f.ProtocolID != syscall.IPPROTO_ICMP {
 		t.Error("fragment protocol id", f.ProtocolID)
+	}
+	if f.PayloadLength != 48 {
+		t.Error("fragment PayloadLength", f.PayloadLength)
 	}
 }
 
@@ -703,8 +852,8 @@ func TestDecodeIPv6HopByHop(t *testing.T) {
 	if ip.Len() != 120 {
 		t.Error("ip length", ip.Len())
 	}
-	if ip.PayloadLen() != 72 {
-		t.Error("ip payload length", ip.PayloadLen())
+	if ip.PayloadLength != 72 {
+		t.Error("ip payload length", ip.PayloadLength)
 	}
 	if ip.SrcAddr() != "200:1000::1" {
 		t.Error("ip src address", ip.SrcAddr())
@@ -729,6 +878,9 @@ func TestDecodeIPv6HopByHop(t *testing.T) {
 	}
 	if udp.DestPort != 7 {
 		t.Error("udp destport", udp.DestPort)
+	}
+	if udp.PayloadLength != 64 {
+		t.Error("udp PayloadLength", udp.PayloadLength)
 	}
 
 	// Leftover of payload
@@ -759,4 +911,36 @@ func TestDecodePretendIPv4(t *testing.T) {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 	// Nothing! No ipv4 found
+}
+
+func TestDecodeARP(t *testing.T) {
+	p := &Packet{
+		DatalinkType: DLTEN10MB,
+		Data: []byte{
+			0x08, 0x00, 0x27, 0xf5, 0x88, 0x76, 0x80, 0xee, 0x73, 0x83, 0x58,
+			0x8f, 0x08, 0x06, 0x00, 0x01, 0x08, 0x00, 0x06, 0x04, 0x00, 0x01,
+			0x80, 0xee, 0x73, 0x83, 0x58, 0x8f, 0xc0, 0xa8, 0x02, 0x6f, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0xa8, 0x02, 0x38,
+		},
+		Len: 42,
+	}
+	p.Decode()
+	if !bytes.Equal(p.DestMac, []byte{0x08, 0x0, 0x27, 0xf5, 0x88, 0x76}) {
+		// 80:00:27:f5:88:76
+		t.Error("Dest mac", p.DestMac)
+	}
+	if !bytes.Equal(p.SrcMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+		// 80:ee:73:83:58:8f
+		t.Error("Src mac", p.SrcMac)
+	}
+	if len(p.Headers) != 1 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+	arp, arpOk := p.Headers[0].(*ARPHdr)
+	if !arpOk {
+		t.Fatal("First header is not an ARP header")
+	}
+	if arp.PayloadLength != 28 {
+		t.Error("arp PayloadLength", arp.PayloadLength)
+	}
 }
