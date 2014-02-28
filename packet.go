@@ -88,12 +88,17 @@ func (p *Packet) Decode() {
 			p.Type = TypeIP6
 		default:
 			log.Printf("unknown raw packet format")
+			return
 		}
 	default:
 		log.Printf("unknown datalink type: %v", DatalinkValueToName(p.DatalinkType))
 		return
 	}
 
+	if p.Type < 0x0600 {
+		// IEEE 802.3 usage: this is the frame length. We never want those.
+		return
+	}
 	switch p.Type {
 	case TypeIP:
 		p.decodeIP(p.FullPayloadLength)
@@ -104,7 +109,10 @@ func (p *Packet) Decode() {
 	case TypeEAPOL:
 		// IEEE 802.1X.
 	default:
-		log.Printf("unknown protocol type for packet: %v", p.Type)
+		log.Printf("unknown protocol type for packet: %v, DLT: %v", p.Type, DatalinkValueToName(p.DatalinkType))
+		// log.Printf("Src: %v\n", net.HardwareAddr(p.SrcMac).String())
+		// log.Printf("Dst: %v\n", net.HardwareAddr(p.DestMac).String())
+		// log.Printf("FullPayloadLength: %v\n", p.FullPayloadLength)
 	}
 }
 
