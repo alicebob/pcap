@@ -108,6 +108,10 @@ func (p *Packet) Decode() {
 		p.decodeARP(p.FullPayloadLength)
 	case TypeEAPOL:
 		// IEEE 802.1X.
+	case TypeLLDP:
+		// Link Layer Discovery Protocol
+	case TypeHomePlug:
+		// HomePlug
 	default:
 		log.Printf("unknown protocol type for packet: %v, DLT: %v", p.Type, DatalinkValueToName(p.DatalinkType))
 		// log.Printf("Src: %v\n", net.HardwareAddr(p.SrcMac).String())
