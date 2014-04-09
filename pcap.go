@@ -20,8 +20,8 @@ import (
 // Pcap wraps a pcap_t struct.
 type Pcap struct {
 	cptr         *C.pcap_t
-	sampling     int // 1:N; a bit of a hack
-	datalinktype int // see http://www.tcpdump.org/linktypes.html
+	sampling     uint64 // 1:N; a bit of a hack
+	datalinktype int    // see http://www.tcpdump.org/linktypes.html
 }
 
 type pcapError struct{ string }
@@ -51,7 +51,7 @@ type IFAddress struct {
 // Version returns the current pcap library version.
 func Version() string { return C.GoString(C.pcap_lib_version()) }
 
-// Datalink
+// Datalink TODO
 func (p *Pcap) Datalink() int { return p.datalinktype }
 
 func (e *pcapError) Error() string { return e.string }
@@ -60,7 +60,7 @@ func (e *pcapError) Error() string { return e.string }
 func (p *Pcap) Geterror() error { return &pcapError{C.GoString(C.pcap_geterr(p.cptr))} }
 
 // Next wraps libpcap NextEx
-func (p *Pcap) Next() (*Packet, int32) { return p.NextEx() }
+func (p *Pcap) Next() (*Packet, uint64, int32) { return p.NextEx() }
 
 // Create TODO
 func Create(device string) (*Pcap, error) {
@@ -197,15 +197,15 @@ func (p *Pcap) SetSampling(rate float64) {
 	//  rate=0.50 sampling=1.0/0.50=2
 	//  rate=0.33 sampling=1.0/0.33=3
 	//  rate=0.15 sampling=1.0/0.15=6.66=6 (alas)
-	p.sampling = int(1.0 / rate)
+	p.sampling = uint64(1.0 / rate)
 }
 
 // NextEx gets the next packet on the handle.
-func (p *Pcap) NextEx() (*Packet, int32) {
+func (p *Pcap) NextEx() (*Packet, uint64, int32) {
 	var pkthdr *C.struct_pcap_pkthdr
 	var bufPtr *C.u_char
 	var result int32
-	for i := 0; i < p.sampling; i++ {
+	for i := uint64(0); i < p.sampling; i++ {
 		// "The struct pcap_pkthdr and the packet data are not to be freed by
 		// the caller, and are not guaranteed to be valid after the next call
 		// ... if the code needs them to remain valid, it must make a copy of
@@ -220,7 +220,7 @@ func (p *Pcap) NextEx() (*Packet, int32) {
 
 	buf := unsafe.Pointer(bufPtr)
 	if buf == nil {
-		return nil, result
+		return nil, 0, result
 	}
 
 	pkt := &Packet{
@@ -230,7 +230,7 @@ func (p *Pcap) NextEx() (*Packet, int32) {
 		Len:          uint32(pkthdr.len),
 		Data:         C.GoBytes(buf, C.int(pkthdr.caplen)), // Note: full copy
 	}
-	return pkt, result
+	return pkt, p.sampling, result
 }
 
 // Getstats TODO

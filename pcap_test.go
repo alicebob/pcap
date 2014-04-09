@@ -32,7 +32,7 @@ func testPcapHandle(t *testing.T, newHandle pcapNewHandleFunc) {
 	go udpClient(port, numPkts, 1*time.Second, t)
 
 	pktsRecvd := 0
-	for pkt, _ := h.Next(); pkt != nil; pkt, _ = h.Next() {
+	for pkt, _, _ := h.Next(); pkt != nil; pkt, _, _ = h.Next() {
 		pkt.Decode()
 		t.Logf("Packet:%s dataLen:%d", pkt, len(pkt.Payload))
 		pktsRecvd += 1
