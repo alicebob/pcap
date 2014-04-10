@@ -197,6 +197,7 @@ func (p *Pcap) SetSampling(rate float64) {
 	//  rate=0.50 sampling=1.0/0.50=2
 	//  rate=0.33 sampling=1.0/0.33=3
 	//  rate=0.15 sampling=1.0/0.15=6.66=6 (alas)
+	// Note that sampling > 0.5 has no effect.
 	p.sampling = uint64(1.0 / rate)
 }
 
