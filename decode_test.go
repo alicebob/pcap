@@ -1,7 +1,6 @@
 package pcap
 
 import (
-	"bytes"
 	"syscall"
 	"testing"
 )
@@ -51,10 +50,10 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 		Len: 434,
 	}
 	p.Decode()
-	if !bytes.Equal(p.DestMac, []byte{0, 0, 0x0c, 0x9f, 0xf0, 0x20}) {
+	if p.DestMac != [6]byte{0, 0, 0x0c, 0x9f, 0xf0, 0x20} {
 		t.Error("Dest mac", p.DestMac)
 	}
-	if !bytes.Equal(p.SrcMac, []byte{0xbc, 0x30, 0x5b, 0xe8, 0xd3, 0x49}) {
+	if p.SrcMac != [6]byte{0xbc, 0x30, 0x5b, 0xe8, 0xd3, 0x49} {
 		t.Error("Src mac", p.SrcMac)
 	}
 	if len(p.Headers) != 2 {
@@ -94,10 +93,10 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 	if ip.Checksum != 0x555A {
 		t.Error("ip Checksum", ip.Checksum)
 	}
-	if !bytes.Equal(ip.SrcIP, []byte{172, 17, 81, 73}) {
+	if ip.SrcIP != [4]byte{172, 17, 81, 73} {
 		t.Error("ip Src", ip.SrcIP)
 	}
-	if !bytes.Equal(ip.DestIP, []byte{173, 222, 254, 225}) {
+	if ip.DestIP != [4]byte{173, 222, 254, 225} {
 		t.Error("ip Dest", ip.DestIP)
 	}
 	if ip.PayloadLength != 400 {
@@ -334,10 +333,10 @@ func TestDecodeLinuxCooked(t *testing.T) {
 		Len: 64,
 	}
 	p.Decode()
-	if p.DestMac != nil {
+	if p.DestMac != [6]byte{} {
 		t.Error("Dest mac", p.DestMac)
 	}
-	if p.SrcMac != nil {
+	if p.SrcMac != [6]byte{} {
 		t.Error("Src mac", p.SrcMac)
 	}
 	if len(p.Headers) != 2 {
@@ -391,10 +390,10 @@ func TestDecodeRaw(t *testing.T) {
 		Len: 24,
 	}
 	p.Decode()
-	if p.DestMac != nil {
+	if p.DestMac != [6]byte{} {
 		t.Error("Dest mac", p.DestMac)
 	}
-	if p.SrcMac != nil {
+	if p.SrcMac != [6]byte{} {
 		t.Error("Src mac", p.SrcMac)
 	}
 	if len(p.Headers) != 2 {
@@ -452,11 +451,11 @@ func TestDecodeICMPv6(t *testing.T) {
 		Len: 86,
 	}
 	p.Decode()
-	if !bytes.Equal(p.DestMac, []byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63}) {
+	if p.DestMac != [6]byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63} {
 		// 33:33:ff:0e:04:63
 		t.Error("Dest mac", p.DestMac)
 	}
-	if !bytes.Equal(p.SrcMac, []byte{0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d}) {
+	if p.SrcMac != [6]byte{0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d} {
 		// 08:96:d7:07:93:0d
 		t.Error("Src mac", p.SrcMac)
 	}
@@ -527,11 +526,11 @@ func TestDecodeIPv6FragmentFirst(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if !bytes.Equal(p.SrcMac, []byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63}) {
+	if p.SrcMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
 		// 1c:3e:84:0e:04:63
 		t.Errorf("Src mac %v", p.SrcMac)
 	}
-	if !bytes.Equal(p.DestMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+	if p.DestMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
 		// 80:ee:73:83:58:8f
 		t.Errorf("Dest mac %v", p.DestMac)
 	}
@@ -603,11 +602,11 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if !bytes.Equal(p.SrcMac, []byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63}) {
+	if p.SrcMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
 		// 1c:3e:84:0e:04:63
 		t.Errorf("Src mac %v", p.SrcMac)
 	}
-	if !bytes.Equal(p.DestMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+	if p.DestMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
 		// 80:ee:73:83:58:8f
 		t.Errorf("Dest mac %v", p.DestMac)
 	}
@@ -680,11 +679,11 @@ func TestDecodeIPFragmentFirst(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if !bytes.Equal(p.SrcMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+	if p.SrcMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
 		// 80:ee:73:83:58:8f
 		t.Errorf("Src mac %v", p.SrcMac)
 	}
-	if !bytes.Equal(p.DestMac, []byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63}) {
+	if p.DestMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
 		// 1c:3e:84:0e:04:63
 		t.Errorf("Dest mac %v", p.DestMac)
 	}
@@ -756,11 +755,11 @@ func TestDecodeIPFragmentLast(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if !bytes.Equal(p.SrcMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+	if p.SrcMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
 		// 80:ee:73:83:58:8f
 		t.Errorf("Src mac %v", p.SrcMac)
 	}
-	if !bytes.Equal(p.DestMac, []byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63}) {
+	if p.DestMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
 		// 1c:3e:84:0e:04:63
 		t.Errorf("Dest mac %v", p.DestMac)
 	}
@@ -832,10 +831,10 @@ func TestDecodeIPv6HopByHop(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if !bytes.Equal(p.SrcMac, []byte{0, 0x11, 0x22, 0x33, 0x44, 0x55}) {
+	if p.SrcMac != [6]byte{0, 0x11, 0x22, 0x33, 0x44, 0x55} {
 		t.Errorf("Src mac %v", p.SrcMac)
 	}
-	if !bytes.Equal(p.DestMac, []byte{0, 0, 0, 0, 0, 0x01}) {
+	if p.DestMac != [6]byte{0, 0, 0, 0, 0, 0x01} {
 		t.Errorf("Dest mac %v", p.DestMac)
 	}
 	if len(p.Headers) != 2 {
@@ -899,11 +898,11 @@ func TestDecodePretendIPv4(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if !bytes.Equal(p.DestMac, []byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63}) {
+	if p.DestMac != [6]byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63} {
 		// 33:33:ff:0e:04:63
 		t.Error("Dest mac", p.DestMac)
 	}
-	if !bytes.Equal(p.SrcMac, []byte{0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d}) {
+	if p.SrcMac != [6]byte{0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d} {
 		// 08:96:d7:07:93:0d
 		t.Error("Src mac", p.SrcMac)
 	}
@@ -925,11 +924,11 @@ func TestDecodeARP(t *testing.T) {
 		Len: 42,
 	}
 	p.Decode()
-	if !bytes.Equal(p.DestMac, []byte{0x08, 0x0, 0x27, 0xf5, 0x88, 0x76}) {
+	if p.DestMac != [6]byte{0x08, 0x0, 0x27, 0xf5, 0x88, 0x76} {
 		// 80:00:27:f5:88:76
 		t.Error("Dest mac", p.DestMac)
 	}
-	if !bytes.Equal(p.SrcMac, []byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f}) {
+	if p.SrcMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
 		// 80:ee:73:83:58:8f
 		t.Error("Src mac", p.SrcMac)
 	}
@@ -960,10 +959,10 @@ func TestDecode8023(t *testing.T) {
 		Len: 60,
 	}
 	p.Decode()
-	if !bytes.Equal(p.DestMac, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}) {
+	if p.DestMac != [6]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff} {
 		t.Error("Dest mac", p.DestMac)
 	}
-	if !bytes.Equal(p.SrcMac, []byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63}) {
+	if p.SrcMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
 		t.Error("Src mac", p.SrcMac)
 	}
 	if len(p.Headers) != 0 {

@@ -110,16 +110,16 @@ type IPHdr struct {
 	TTL            uint8
 	Protocol       uint8
 	Checksum       uint16
-	SrcIP          []byte
-	DestIP         []byte
+	SrcIP          [4]byte
+	DestIP         [4]byte
 	PayloadLength  int
 }
 
 // SrcAddr returns the string version of the source IP.
-func (ip *IPHdr) SrcAddr() string { return net.IP(ip.SrcIP).String() }
+func (ip *IPHdr) SrcAddr() string { return net.IP(ip.SrcIP[:]).String() }
 
 // DestAddr returns the string version of the destination IP.
-func (ip *IPHdr) DestAddr() string { return net.IP(ip.DestIP).String() }
+func (ip *IPHdr) DestAddr() string { return net.IP(ip.DestIP[:]).String() }
 
 // Len returns the total packet length (including headers)
 func (ip *IPHdr) Len() int { return int(ip.Length) }
@@ -257,24 +257,24 @@ func (icmp *ICMPHdr) TypeString() (result string) {
 // IP6Hdr is the header of an IPv6 packet.
 type IP6Hdr struct {
 	// http://www.networksorcery.com/enp/protocol/ipv6.htm
-	Version        uint8  // 4 bits
-	TrafficClass   uint8  // 8 bits
-	FlowLabel      uint32 // 20 bits
-	Length         uint16 // 16 bits
-	NextHeader     uint8  // 8 bits, similar to Protocol in IPHdr
-	HopLimit       uint8  // 8 bits
-	SrcIP          []byte // 16 bytes
-	DestIP         []byte // 16 bytes
-	HasFragmented  bool   // Is an extended header
+	Version        uint8    // 4 bits
+	TrafficClass   uint8    // 8 bits
+	FlowLabel      uint32   // 20 bits
+	Length         uint16   // 16 bits
+	NextHeader     uint8    // 8 bits, similar to Protocol in IPHdr
+	HopLimit       uint8    // 8 bits
+	SrcIP          [16]byte // 16 bytes
+	DestIP         [16]byte // 16 bytes
+	HasFragmented  bool     // Is an extended header
 	FragmentOffset uint16
 	PayloadLength  int
 }
 
 // SrcAddr returns the string version of the source IP.
-func (ip6 *IP6Hdr) SrcAddr() string { return net.IP(ip6.SrcIP).String() }
+func (ip6 *IP6Hdr) SrcAddr() string { return net.IP(ip6.SrcIP[:]).String() }
 
 // DestAddr returns the string version of the destination IP.
-func (ip6 *IP6Hdr) DestAddr() string { return net.IP(ip6.DestIP).String() }
+func (ip6 *IP6Hdr) DestAddr() string { return net.IP(ip6.DestIP[:]).String() }
 
 // Len returns the total length of the packet
 // 40 bytes are fixed header length

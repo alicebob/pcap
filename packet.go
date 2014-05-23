@@ -22,12 +22,12 @@ type Packet struct {
 	Time   time.Time // packet send/receive time
 	Caplen uint32    // bytes stored in the file (caplen <= len)
 	Len    uint32    // bytes sent/received
+	Data   []byte    // packet data
 
-	Data []byte // packet data
-
+	// Ethernet fields
 	Type    int // (next)protocol type
-	DestMac []byte
-	SrcMac  []byte
+	DestMac [6]byte
+	SrcMac  [6]byte
 
 	Headers           []interface{} // decoded headers, in order
 	Payload           []byte        // remaining captured non-header bytes
@@ -50,10 +50,8 @@ func (p *Packet) Decode() {
 	case C.DLT_EN10MB:
 		// Ethernet
 		p.Type = int(binary.BigEndian.Uint16(p.Data[12:14]))
-		p.DestMac = make([]byte, 6)
-		copy(p.DestMac, p.Data[0:6])
-		p.SrcMac = make([]byte, 6)
-		copy(p.SrcMac, p.Data[6:12])
+		copy(p.DestMac[:], p.Data[0:6])
+		copy(p.SrcMac[:], p.Data[6:12])
 		p.Payload = p.Data[14:]
 		p.FullPayloadLength = int(p.Len - 14)
 	case C.DLT_LINUX_SLL:
@@ -68,8 +66,8 @@ func (p *Packet) Decode() {
 		p.Type = protocol
 		if linkLayerAddressType == ARPHrdEther {
 			// Ethernet
-			p.SrcMac = make([]byte, 6)
-			copy(p.SrcMac, linkLayerAddress)
+			copy(p.SrcMac[:], linkLayerAddress)
+			// DstMac stays zerod.
 		}
 		p.Payload = p.Data[16:]
 		p.FullPayloadLength = int(p.Len - 16)
@@ -210,8 +208,8 @@ func (p *Packet) decodeIP(fullPayloadLength int) {
 	ip.TTL = pkt[8]
 	ip.Protocol = pkt[9]
 	ip.Checksum = binary.BigEndian.Uint16(pkt[10:12])
-	ip.SrcIP = pkt[12:16]
-	ip.DestIP = pkt[16:20]
+	copy(ip.SrcIP[:], pkt[12:16])
+	copy(ip.DestIP[:], pkt[16:20])
 	ip.PayloadLength = int(ip.Length) - int(ip.Ihl)*4 // Ihl goes per 4 bytes
 	if fullPayloadLength < ip.PayloadLength {
 		// Captured packet was shorter than what was expected.
@@ -336,8 +334,8 @@ func (p *Packet) decodeIP6(fullPayloadLength int) {
 	}
 	ip6.NextHeader = pkt[6]
 	ip6.HopLimit = pkt[7]
-	ip6.SrcIP = pkt[8:24]
-	ip6.DestIP = pkt[24:40]
+	copy(ip6.SrcIP[:], pkt[8:24])
+	copy(ip6.DestIP[:], pkt[24:40])
 	p.Payload = pkt[40:]
 	p.Headers = append(p.Headers, ip6)
 
