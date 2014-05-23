@@ -50,18 +50,24 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 		Len: 434,
 	}
 	p.Decode()
-	if p.DestMac != [6]byte{0, 0, 0x0c, 0x9f, 0xf0, 0x20} {
-		t.Error("Dest mac", p.DestMac)
-	}
-	if p.SrcMac != [6]byte{0xbc, 0x30, 0x5b, 0xe8, 0xd3, 0x49} {
-		t.Error("Src mac", p.SrcMac)
-	}
-	if len(p.Headers) != 2 {
+	if len(p.Headers) != 3 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
-	ip, ipOk := p.Headers[0].(*IPHdr)
+
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.DestMac != [6]byte{0, 0, 0x0c, 0x9f, 0xf0, 0x20} {
+		t.Error("Dest mac", eth.DestMac)
+	}
+	if eth.SrcMac != [6]byte{0xbc, 0x30, 0x5b, 0xe8, 0xd3, 0x49} {
+		t.Error("Src mac", eth.SrcMac)
+	}
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
 	if !ipOk {
-		t.Fatal("First header is not IP header")
+		t.Fatal("Header is not IP header")
 	}
 	if ip.Version != 4 {
 		t.Error("ip Version", ip.Version)
@@ -103,9 +109,9 @@ func TestDecodeSimpleTcpPacket(t *testing.T) {
 		t.Error("ip PayloadLength", ip.PayloadLength)
 	}
 
-	tcp, tcpOk := p.Headers[1].(*TCPHdr)
+	tcp, tcpOk := p.Headers[2].(*TCPHdr)
 	if !tcpOk {
-		t.Fatal("Second header is not TCP header")
+		t.Fatal("Header is not TCP header")
 	}
 	if tcp.SrcPort != 50679 {
 		t.Error("tcp srcport", tcp.SrcPort)
@@ -159,6 +165,10 @@ func TestDecodeSmallTcpPacketHasEmptyPayload(t *testing.T) {
 		Len: 60,
 	}
 	p.Decode()
+	if len(p.Headers) != 3 {
+		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+
 	if p.Payload == nil {
 		t.Error("Nil payload")
 	}
@@ -166,17 +176,19 @@ func TestDecodeSmallTcpPacketHasEmptyPayload(t *testing.T) {
 		t.Error("Non-empty payload:", p.Payload)
 	}
 
-	if len(p.Headers) != 2 {
-		t.Fatal("Incorrect number of headers", len(p.Headers))
+	_, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
 	}
-	ip, ipOk := p.Headers[0].(*IPHdr)
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
 	if !ipOk {
 		t.Fatal("First header is not an IP header")
 	}
 	if ip.PayloadLength != 20 {
 		t.Error("ip PayloadLength", ip.PayloadLength)
 	}
-	tcp, tcpOk := p.Headers[1].(*TCPHdr)
+	tcp, tcpOk := p.Headers[2].(*TCPHdr)
 	if !tcpOk {
 		t.Fatal("Second header is not a TCP header")
 	}
@@ -199,13 +211,18 @@ func TestDecodeMaliciousIPHeaderLength(t *testing.T) {
 		Len: 60,
 	}
 	p.Decode()
-
-	if len(p.Headers) != 1 {
+	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
-	ip, ipOk := p.Headers[0].(*IPHdr)
+
+	_, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
 	if !ipOk {
-		t.Fatal("First header is not an IP header")
+		t.Fatal("Header is not an IP header")
 	}
 	if ip.PayloadLength != 0 {
 		t.Error("ip PayloadLength", ip.PayloadLength)
@@ -222,13 +239,20 @@ func TestDecodeTruncatedUpperLayerTCP(t *testing.T) {
 			0x55, 0x5a, 0xac, 0x11, 0x51, 0x49, 0xad, 0xde, 0xfe, 0xe1, 0xc5,
 		}}
 	p.Decode()
-	if len(p.Headers) != 1 {
+	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
-	ip, ipOk := p.Headers[0].(*IPHdr)
-	if !ipOk {
-		t.Fatal("First header is not an IP header")
+
+	_, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
 	}
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
+	if !ipOk {
+		t.Fatal("Header is not an IP header")
+	}
+
 	if len(p.Payload) != 1 {
 		t.Error("len Payload", len(p.Payload))
 	}
@@ -247,18 +271,25 @@ func TestDecodeTruncatedUpperLayerICMP(t *testing.T) {
 			0x55, 0x5a, 0xac, 0x11, 0x51, 0x49, 0xad, 0xde, 0xfe, 0xe1, 0xc5,
 		}}
 	p.Decode()
-	if len(p.Headers) != 1 {
+	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
-	ip, ipOk := p.Headers[0].(*IPHdr)
-	if !ipOk {
-		t.Fatal("First header is not an IP header")
+
+	_, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
 	}
-	if len(p.Payload) != 1 {
-		t.Error("len Payload", len(p.Payload))
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
+	if !ipOk {
+		t.Fatal("Header is not an IP header")
 	}
 	if ip.PayloadLength != 400 {
 		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
+
+	if len(p.Payload) != 1 {
+		t.Error("len Payload", len(p.Payload))
 	}
 }
 
@@ -272,18 +303,25 @@ func TestDecodeTruncatedUpperLayerUDP(t *testing.T) {
 			0x55, 0x5a, 0xac, 0x11, 0x51, 0x49, 0xad, 0xde, 0xfe, 0xe1, 0xc5,
 		}}
 	p.Decode()
-	if len(p.Headers) != 1 {
+	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
-	ip, ipOk := p.Headers[0].(*IPHdr)
-	if !ipOk {
-		t.Fatal("First header is not an IP header")
+
+	_, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
 	}
-	if len(p.Payload) != 1 {
-		t.Error("len Payload", len(p.Payload))
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
+	if !ipOk {
+		t.Fatal("Header is not an IP header")
 	}
 	if ip.PayloadLength != 400 {
 		t.Error("ip PayloadLength", ip.PayloadLength)
+	}
+
+	if len(p.Payload) != 1 {
+		t.Error("len Payload", len(p.Payload))
 	}
 }
 
@@ -299,19 +337,26 @@ func TestDecodeMaliciousTCPDataOffset(t *testing.T) {
 			0x37, 0x9c, 0x42, 0x77, 0x5e, 0x3a,
 		}}
 	p.Decode()
-	if len(p.Headers) != 2 {
+	if len(p.Headers) != 3 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
-	ip, ipOk := p.Headers[0].(*IPHdr)
+
+	_, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
 	if !ipOk {
-		t.Fatal("First header is not an IP header")
+		t.Fatal("Header is not an IP header")
 	}
 	if ip.PayloadLength != 400 {
 		t.Error("ip PayloadLength", ip.PayloadLength)
 	}
-	tcp, tcpOk := p.Headers[1].(*TCPHdr)
+
+	tcp, tcpOk := p.Headers[2].(*TCPHdr)
 	if !tcpOk {
-		t.Fatal("Second header is not a TCP header")
+		t.Fatal("Header is not a TCP header")
 	}
 	if tcp.PayloadLength != 368 {
 		t.Error("tcp PayloadLength", tcp.PayloadLength)
@@ -333,19 +378,24 @@ func TestDecodeLinuxCooked(t *testing.T) {
 		Len: 64,
 	}
 	p.Decode()
-	if p.DestMac != [6]byte{} {
-		t.Error("Dest mac", p.DestMac)
-	}
-	if p.SrcMac != [6]byte{} {
-		t.Error("Src mac", p.SrcMac)
-	}
-	if len(p.Headers) != 2 {
+	if len(p.Headers) != 3 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
-	ip, ipOk := p.Headers[0].(*IPHdr)
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.DestMac != [6]byte{} {
+		t.Error("Dest mac", eth.DestMac)
+	}
+	if eth.SrcMac != [6]byte{} {
+		t.Error("Src mac", eth.SrcMac)
+	}
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
 	if !ipOk {
-		t.Fatal("First header is not an IP header")
+		t.Fatal("Header is not an IP header")
 	}
 	if ip.Version != 4 {
 		t.Error("ip Version", ip.Version)
@@ -357,9 +407,9 @@ func TestDecodeLinuxCooked(t *testing.T) {
 		t.Error("ip PayloadLength", ip.PayloadLength)
 	}
 
-	udp, udpOk := p.Headers[1].(*UDPHdr)
+	udp, udpOk := p.Headers[2].(*UDPHdr)
 	if !udpOk {
-		t.Fatal("Second header is not a UDP header")
+		t.Fatal("Header is not a UDP header")
 	}
 	if udp.SrcPort != 6881 {
 		t.Error("udp srcport", udp.SrcPort)
@@ -390,19 +440,15 @@ func TestDecodeRaw(t *testing.T) {
 		Len: 24,
 	}
 	p.Decode()
-	if p.DestMac != [6]byte{} {
-		t.Error("Dest mac", p.DestMac)
-	}
-	if p.SrcMac != [6]byte{} {
-		t.Error("Src mac", p.SrcMac)
-	}
 	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
+	// No Ethernet
+
 	ip, ipOk := p.Headers[0].(*IPHdr)
 	if !ipOk {
-		t.Fatal("First header is not an IP header")
+		t.Fatal("Header is not an IP header")
 	}
 	if ip.Version != 4 {
 		t.Error("ip Version", ip.Version)
@@ -416,7 +462,7 @@ func TestDecodeRaw(t *testing.T) {
 
 	udp, udpOk := p.Headers[1].(*UDPHdr)
 	if !udpOk {
-		t.Fatal("Second header is not a UDP header")
+		t.Fatal("Header is not a UDP header")
 	}
 	if udp.SrcPort != 63765 {
 		t.Error("udp srcport", udp.SrcPort)
@@ -451,19 +497,24 @@ func TestDecodeICMPv6(t *testing.T) {
 		Len: 86,
 	}
 	p.Decode()
-	if p.DestMac != [6]byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63} {
-		// 33:33:ff:0e:04:63
-		t.Error("Dest mac", p.DestMac)
-	}
-	if p.SrcMac != [6]byte{0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d} {
-		// 08:96:d7:07:93:0d
-		t.Error("Src mac", p.SrcMac)
-	}
-	if len(p.Headers) != 2 {
+	if len(p.Headers) != 3 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
-	ip, ipOk := p.Headers[0].(*IP6Hdr)
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.DestMac != [6]byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63} {
+		// 33:33:ff:0e:04:63
+		t.Error("Dest mac", eth.DestMac)
+	}
+	if eth.SrcMac != [6]byte{0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d} {
+		// 08:96:d7:07:93:0d
+		t.Error("Src mac", eth.SrcMac)
+	}
+
+	ip, ipOk := p.Headers[1].(*IP6Hdr)
 	if !ipOk {
 		t.Fatal("First header is not an IPv6 header")
 	}
@@ -486,7 +537,7 @@ func TestDecodeICMPv6(t *testing.T) {
 		t.Error("ip PayloadLength", ip.PayloadLength)
 	}
 
-	icmp, icmpOk := p.Headers[1].(*ICMPv6Hdr)
+	icmp, icmpOk := p.Headers[2].(*ICMPv6Hdr)
 	if !icmpOk {
 		t.Fatal("Second header is not an ICMPv6 header")
 	}
@@ -526,21 +577,26 @@ func TestDecodeIPv6FragmentFirst(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if p.SrcMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
-		// 1c:3e:84:0e:04:63
-		t.Errorf("Src mac %v", p.SrcMac)
-	}
-	if p.DestMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
-		// 80:ee:73:83:58:8f
-		t.Errorf("Dest mac %v", p.DestMac)
-	}
-	if len(p.Headers) != 2 {
+	if len(p.Headers) != 3 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
-	ip, ipOk := p.Headers[0].(*IP6Hdr)
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.SrcMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
+		// 1c:3e:84:0e:04:63
+		t.Errorf("Src mac %v", eth.SrcMac)
+	}
+	if eth.DestMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
+		// 80:ee:73:83:58:8f
+		t.Errorf("Dest mac %v", eth.DestMac)
+	}
+
+	ip, ipOk := p.Headers[1].(*IP6Hdr)
 	if !ipOk {
-		t.Fatal("First header is not an IPv6 header")
+		t.Fatal("Header is not an IPv6 header")
 	}
 	if ip.Version != 6 {
 		t.Error("ip Version", ip.Version)
@@ -563,9 +619,9 @@ func TestDecodeIPv6FragmentFirst(t *testing.T) {
 		t.Error("not fragmented")
 	}
 
-	icmp, icmpOk := p.Headers[1].(*ICMPv6Hdr)
+	icmp, icmpOk := p.Headers[2].(*ICMPv6Hdr)
 	if !icmpOk {
-		t.Fatal("Second header is not an ICMPv6 header")
+		t.Fatal("Header is not an ICMPv6 header")
 	}
 	// ping reply
 	if icmp.Type != 129 {
@@ -602,23 +658,28 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if p.SrcMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
-		// 1c:3e:84:0e:04:63
-		t.Errorf("Src mac %v", p.SrcMac)
-	}
-	if p.DestMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
-		// 80:ee:73:83:58:8f
-		t.Errorf("Dest mac %v", p.DestMac)
-	}
 	// Not the first fragment, so we can't look at the payload
-	if len(p.Headers) != 2 {
+	if len(p.Headers) != 3 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
-	// First header. IPv6.
-	ip, ipOk := p.Headers[0].(*IP6Hdr)
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.SrcMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
+		// 1c:3e:84:0e:04:63
+		t.Errorf("Src mac %v", eth.SrcMac)
+	}
+	if eth.DestMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
+		// 80:ee:73:83:58:8f
+		t.Errorf("Dest mac %v", eth.DestMac)
+	}
+
+	// IPv6.
+	ip, ipOk := p.Headers[1].(*IP6Hdr)
 	if !ipOk {
-		t.Fatal("First header is not an IPv6 header")
+		t.Fatal("Header is not an IPv6 header")
 	}
 	if ip.Version != 6 {
 		t.Error("ip Version", ip.Version)
@@ -645,9 +706,9 @@ func TestDecodeIPv6FragmentEtc(t *testing.T) {
 	}
 
 	// Fragment.
-	f, fOk := p.Headers[1].(*Fragment)
+	f, fOk := p.Headers[2].(*Fragment)
 	if !fOk {
-		t.Fatal("Second part is not an Fragment")
+		t.Fatal("Part is not an Fragment")
 	}
 	if f.Length != 12 {
 		// We truncated the testbytes above
@@ -679,21 +740,26 @@ func TestDecodeIPFragmentFirst(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if p.SrcMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
-		// 80:ee:73:83:58:8f
-		t.Errorf("Src mac %v", p.SrcMac)
-	}
-	if p.DestMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
-		// 1c:3e:84:0e:04:63
-		t.Errorf("Dest mac %v", p.DestMac)
-	}
-	if len(p.Headers) != 2 {
+	if len(p.Headers) != 3 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
-	ip, ipOk := p.Headers[0].(*IPHdr)
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.SrcMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
+		// 80:ee:73:83:58:8f
+		t.Errorf("Src mac %v", eth.SrcMac)
+	}
+	if eth.DestMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
+		// 1c:3e:84:0e:04:63
+		t.Errorf("Dest mac %v", eth.DestMac)
+	}
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
 	if !ipOk {
-		t.Fatal("First header is not an IPv4 header")
+		t.Fatal("Header is not an IPv4 header")
 	}
 	if ip.Version != 4 {
 		t.Error("ip Version", ip.Version)
@@ -716,9 +782,9 @@ func TestDecodeIPFragmentFirst(t *testing.T) {
 		t.Error("not fragmented")
 	}
 
-	icmp, icmpOk := p.Headers[1].(*ICMPHdr)
+	icmp, icmpOk := p.Headers[2].(*ICMPHdr)
 	if !icmpOk {
-		t.Fatal("Second header is not an ICMP header")
+		t.Fatal("Header is not an ICMP header")
 	}
 	// ping request
 	if icmp.Type != 8 {
@@ -755,21 +821,26 @@ func TestDecodeIPFragmentLast(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if p.SrcMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
-		// 80:ee:73:83:58:8f
-		t.Errorf("Src mac %v", p.SrcMac)
-	}
-	if p.DestMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
-		// 1c:3e:84:0e:04:63
-		t.Errorf("Dest mac %v", p.DestMac)
-	}
-	if len(p.Headers) != 2 {
+	if len(p.Headers) != 3 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
-	ip, ipOk := p.Headers[0].(*IPHdr)
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.SrcMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
+		// 80:ee:73:83:58:8f
+		t.Errorf("Src mac %v", eth.SrcMac)
+	}
+	if eth.DestMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
+		// 1c:3e:84:0e:04:63
+		t.Errorf("Dest mac %v", eth.DestMac)
+	}
+
+	ip, ipOk := p.Headers[1].(*IPHdr)
 	if !ipOk {
-		t.Fatal("First header is not an IPv4 header")
+		t.Fatal("Header is not an IPv4 header")
 	}
 	if ip.Version != 4 {
 		t.Error("ip Version", ip.Version)
@@ -792,9 +863,9 @@ func TestDecodeIPFragmentLast(t *testing.T) {
 	}
 
 	// Fragment.
-	f, fOk := p.Headers[1].(*Fragment)
+	f, fOk := p.Headers[2].(*Fragment)
 	if !fOk {
-		t.Fatal("Second part is not an Fragment")
+		t.Fatal("Part is not an Fragment")
 	}
 	if f.Length != 48 {
 		// We truncated the testbytes above
@@ -831,19 +902,24 @@ func TestDecodeIPv6HopByHop(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if p.SrcMac != [6]byte{0, 0x11, 0x22, 0x33, 0x44, 0x55} {
-		t.Errorf("Src mac %v", p.SrcMac)
-	}
-	if p.DestMac != [6]byte{0, 0, 0, 0, 0, 0x01} {
-		t.Errorf("Dest mac %v", p.DestMac)
-	}
-	if len(p.Headers) != 2 {
+	if len(p.Headers) != 3 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
 
-	ip, ipOk := p.Headers[0].(*IP6Hdr)
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.SrcMac != [6]byte{0, 0x11, 0x22, 0x33, 0x44, 0x55} {
+		t.Errorf("Src mac %v", eth.SrcMac)
+	}
+	if eth.DestMac != [6]byte{0, 0, 0, 0, 0, 0x01} {
+		t.Errorf("Dest mac %v", eth.DestMac)
+	}
+
+	ip, ipOk := p.Headers[1].(*IP6Hdr)
 	if !ipOk {
-		t.Fatal("First header is not an IPv6 header")
+		t.Fatal("Header is not an IPv6 header")
 	}
 	if ip.Version != 6 {
 		t.Error("ip Version", ip.Version)
@@ -865,9 +941,9 @@ func TestDecodeIPv6HopByHop(t *testing.T) {
 	}
 
 	// UDP
-	udp, udpOk := p.Headers[1].(*UDPHdr)
+	udp, udpOk := p.Headers[2].(*UDPHdr)
 	if !udpOk {
-		t.Fatal("Second part is not UDP")
+		t.Fatal("Part is not UDP")
 	}
 	if udp.Length != 72 {
 		t.Error("UDP length", udp.Length)
@@ -898,16 +974,21 @@ func TestDecodePretendIPv4(t *testing.T) {
 		},
 	}
 	p.Decode()
-	if p.DestMac != [6]byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63} {
-		// 33:33:ff:0e:04:63
-		t.Error("Dest mac", p.DestMac)
-	}
-	if p.SrcMac != [6]byte{0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d} {
-		// 08:96:d7:07:93:0d
-		t.Error("Src mac", p.SrcMac)
-	}
-	if len(p.Headers) != 0 {
+	if len(p.Headers) != 1 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.DestMac != [6]byte{0x33, 0x33, 0xff, 0x0e, 0x04, 0x63} {
+		// 33:33:ff:0e:04:63
+		t.Error("Dest mac", eth.DestMac)
+	}
+	if eth.SrcMac != [6]byte{0x08, 0x96, 0xd7, 0x07, 0x93, 0x0d} {
+		// 08:96:d7:07:93:0d
+		t.Error("Src mac", eth.SrcMac)
 	}
 	// Nothing! No ipv4 found
 }
@@ -924,20 +1005,26 @@ func TestDecodeARP(t *testing.T) {
 		Len: 42,
 	}
 	p.Decode()
-	if p.DestMac != [6]byte{0x08, 0x0, 0x27, 0xf5, 0x88, 0x76} {
-		// 80:00:27:f5:88:76
-		t.Error("Dest mac", p.DestMac)
-	}
-	if p.SrcMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
-		// 80:ee:73:83:58:8f
-		t.Error("Src mac", p.SrcMac)
-	}
-	if len(p.Headers) != 1 {
+	if len(p.Headers) != 2 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
 	}
-	arp, arpOk := p.Headers[0].(*ARPHdr)
+
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.DestMac != [6]byte{0x08, 0x0, 0x27, 0xf5, 0x88, 0x76} {
+		// 80:00:27:f5:88:76
+		t.Error("Dest mac", eth.DestMac)
+	}
+	if eth.SrcMac != [6]byte{0x80, 0xee, 0x73, 0x83, 0x58, 0x8f} {
+		// 80:ee:73:83:58:8f
+		t.Error("Src mac", eth.SrcMac)
+	}
+
+	arp, arpOk := p.Headers[1].(*ARPHdr)
 	if !arpOk {
-		t.Fatal("First header is not an ARP header")
+		t.Fatal("Header is not an ARP header")
 	}
 	if arp.PayloadLength != 28 {
 		t.Error("arp PayloadLength", arp.PayloadLength)
@@ -959,13 +1046,18 @@ func TestDecode8023(t *testing.T) {
 		Len: 60,
 	}
 	p.Decode()
-	if p.DestMac != [6]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff} {
-		t.Error("Dest mac", p.DestMac)
-	}
-	if p.SrcMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
-		t.Error("Src mac", p.SrcMac)
-	}
-	if len(p.Headers) != 0 {
+	if len(p.Headers) != 1 {
 		t.Fatal("Incorrect number of headers", len(p.Headers))
+	}
+
+	eth, ethOk := p.Headers[0].(*EthernetHdr)
+	if !ethOk {
+		t.Fatal("Header is not Ethernet")
+	}
+	if eth.DestMac != [6]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff} {
+		t.Error("Dest mac", eth.DestMac)
+	}
+	if eth.SrcMac != [6]byte{0x1c, 0x3e, 0x84, 0x0e, 0x04, 0x63} {
+		t.Error("Src mac", eth.SrcMac)
 	}
 }

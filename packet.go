@@ -19,19 +19,12 @@ import (
 type Packet struct {
 	DatalinkType int // DLT_* type
 	// porting from 'pcap_pkthdr' struct
-	Time   time.Time // packet send/receive time
-	Caplen uint32    // bytes stored in the file (caplen <= len)
-	Len    uint32    // bytes sent/received
-	Data   []byte    // packet data
-
-	// Ethernet fields
-	Type    int // (next)protocol type
-	DestMac [6]byte
-	SrcMac  [6]byte
-
-	Headers           []interface{} // decoded headers, in order
-	Payload           []byte        // remaining captured non-header bytes
-	FullPayloadLength int           // payload length, regardless what was captured
+	Time    time.Time     // packet send/receive time
+	Caplen  uint32        // bytes stored in the file (caplen <= len)
+	Len     uint32        // bytes sent/received
+	Data    []byte        // packet data
+	Headers []interface{} // decoded headers, in order
+	Payload []byte        // remaining captured non-header bytes
 }
 
 func supportedDatalink(id int) bool {
@@ -45,45 +38,29 @@ func supportedDatalink(id int) bool {
 
 // Decode decodes the headers of a Packet.
 func (p *Packet) Decode() {
+	p.Payload = p.Data
 	switch p.DatalinkType {
 	// Update supportedDatalink() if you add a type here
 	case C.DLT_EN10MB:
 		// Ethernet
-		p.Type = int(binary.BigEndian.Uint16(p.Data[12:14]))
-		copy(p.DestMac[:], p.Data[0:6])
-		copy(p.SrcMac[:], p.Data[6:12])
-		p.Payload = p.Data[14:]
-		p.FullPayloadLength = int(p.Len - 14)
+		p.decodeEthernet()
+		return
 	case C.DLT_LINUX_SLL:
-		// Linux cooked
-		// http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
-		// packetType := int(binary.BigEndian.Uint16(p.Data[0:2]))
-		linkLayerAddressType := int(binary.BigEndian.Uint16(p.Data[2:4]))
-		linkLayerAddressLength := int(binary.BigEndian.Uint16(p.Data[4:6]))
-		linkLayerAddress := p.Data[8 : 8+linkLayerAddressLength]
-		protocol := int(binary.BigEndian.Uint16(p.Data[14:16]))
-
-		p.Type = protocol
-		if linkLayerAddressType == ARPHrdEther {
-			// Ethernet
-			copy(p.SrcMac[:], linkLayerAddress)
-			// DstMac stays zerod.
-		}
-		p.Payload = p.Data[16:]
-		p.FullPayloadLength = int(p.Len - 16)
+		p.decodeLinuxCooked()
+		return
 	case C.DLT_RAW:
 		// RAW. So this is IP, but it can be either v4 or v6.
 		if len(p.Data) < 20 {
 			return
 		}
-		p.Payload = p.Data
-		p.FullPayloadLength = int(p.Len)
 		version := uint8(p.Data[0]) >> 4
 		switch version {
 		case 4:
-			p.Type = TypeIP
+			p.decodeIP(int(p.Len))
+			return
 		case 6:
-			p.Type = TypeIP6
+			p.decodeIP6(int(p.Len))
+			return
 		default:
 			log.Printf("unknown raw packet format")
 			return
@@ -91,30 +68,6 @@ func (p *Packet) Decode() {
 	default:
 		log.Printf("unknown datalink type: %v", DatalinkValueToName(p.DatalinkType))
 		return
-	}
-
-	if p.Type < 0x0600 {
-		// IEEE 802.3 usage: this is the frame length. We never want those.
-		return
-	}
-	switch p.Type {
-	case TypeIP:
-		p.decodeIP(p.FullPayloadLength)
-	case TypeIP6:
-		p.decodeIP6(p.FullPayloadLength)
-	case TypeARP:
-		p.decodeARP(p.FullPayloadLength)
-	case TypeEAPOL:
-		// IEEE 802.1X.
-	case TypeLLDP:
-		// Link Layer Discovery Protocol
-	case TypeHomePlug:
-		// HomePlug
-	default:
-		log.Printf("unknown protocol type for packet: %v, DLT: %v", p.Type, DatalinkValueToName(p.DatalinkType))
-		// log.Printf("Src: %v\n", net.HardwareAddr(p.SrcMac).String())
-		// log.Printf("Dst: %v\n", net.HardwareAddr(p.DestMac).String())
-		// log.Printf("FullPayloadLength: %v\n", p.FullPayloadLength)
 	}
 }
 
@@ -152,12 +105,80 @@ func (p *Packet) headerString(headers []interface{}) string {
 	return fmt.Sprintf("unknown [%s]", strings.Join(typeNames, ","))
 }
 
+func (p *Packet) decodeEthernet() {
+	if len(p.Payload) < 14 {
+		return
+	}
+	eth := EthernetHdr{
+		Type:          int(binary.BigEndian.Uint16(p.Payload[12:14])),
+		PayloadLength: int(p.Len - 14),
+	}
+	copy(eth.DestMac[:], p.Payload[0:6])
+	copy(eth.SrcMac[:], p.Payload[6:12])
+
+	eth.PayloadLength = int(p.Len - 14)
+	p.Payload = p.Payload[14:]
+	p.Headers = append(p.Headers, &eth)
+	p.handleEthernet(&eth)
+}
+
+func (p *Packet) decodeLinuxCooked() {
+	// Linux cooked
+	// http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
+	// packetType := int(binary.BigEndian.Uint16(p.Data[0:2]))
+	if len(p.Payload) < 16 {
+		return
+	}
+	sll := EthernetHdr{
+		Type: int(binary.BigEndian.Uint16(p.Payload[14:16])),
+	}
+	linkLayerAddressType := int(binary.BigEndian.Uint16(p.Payload[2:4]))
+	linkLayerAddressLength := int(binary.BigEndian.Uint16(p.Payload[4:6]))
+	linkLayerAddress := p.Payload[8 : 8+linkLayerAddressLength]
+	if linkLayerAddressType == ARPHrdEther {
+		// Ethernet
+		copy(sll.SrcMac[:], linkLayerAddress)
+		// DstMac stays zerod.
+	}
+	sll.PayloadLength = int(p.Len - 16)
+	p.Payload = p.Payload[16:]
+	p.Headers = append(p.Headers, &sll)
+	p.handleEthernet(&sll)
+}
+
+// handleEthernet is the common code fot decodeEthernet and decodeLinuxCooked
+func (p *Packet) handleEthernet(eth *EthernetHdr) {
+	if eth.Type < 0x0600 {
+		// IEEE 802.3 usage: this is the frame length. We never want those.
+		return
+	}
+	switch eth.Type {
+	case TypeIP:
+		p.decodeIP(eth.PayloadLength)
+	case TypeIP6:
+		p.decodeIP6(eth.PayloadLength)
+	case TypeARP:
+		p.decodeARP(eth.PayloadLength)
+	case TypeEAPOL:
+		// IEEE 802.1X.
+	case TypeLLDP:
+		// Link Layer Discovery Protocol
+	case TypeHomePlug:
+		// HomePlug
+	default:
+		log.Printf("unknown protocol type for packet: %v", eth.Type)
+		// log.Printf("Src: %v\n", net.HardwareAddr(p.SrcMac).String())
+		// log.Printf("Dst: %v\n", net.HardwareAddr(p.DestMac).String())
+		// log.Printf("FullPayloadLength: %v\n", p.FullPayloadLength)
+	}
+}
+
 // String prints a one-line representation of the packet header.
 // The output is suitable for use in a tcpdump program.
 func (p *Packet) String() string {
 	// If there are no headers, print "unsupported protocol".
 	if len(p.Headers) == 0 {
-		return fmt.Sprintf("%s unsupported protocol %d", p.Time, int(p.Type))
+		return fmt.Sprintf("%s unsupported protocol", p.Time)
 	}
 	return fmt.Sprintf("%s %s", p.Time, p.headerString(p.Headers))
 }

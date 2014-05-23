@@ -62,6 +62,14 @@ func decodemac(pkt []byte) uint64 {
 	return mac
 }
 
+// EthernetHdr is a ethernet like field.
+type EthernetHdr struct {
+	Type          int // (next)protocol type
+	DestMac       [6]byte
+	SrcMac        [6]byte
+	PayloadLength int
+}
+
 // ARPHdr is a ARP packet header.
 type ARPHdr struct {
 	Addrtype          uint16
