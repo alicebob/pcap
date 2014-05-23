@@ -36,7 +36,7 @@ type Packet struct {
 
 func supportedDatalink(id int) bool {
 	switch id {
-	case DLTEN10MB, DLTLINUXSSL, DLTRAW:
+	case LinkTypeEthernet, LinkTypeLinuxCooked, LinkTypeRaw:
 		return true
 	default:
 		return false
@@ -66,7 +66,7 @@ func (p *Packet) Decode() {
 		protocol := int(binary.BigEndian.Uint16(p.Data[14:16]))
 
 		p.Type = protocol
-		if linkLayerAddressType == ARPHRD_ETHER {
+		if linkLayerAddressType == ARPHrdEther {
 			// Ethernet
 			p.SrcMac = make([]byte, 6)
 			copy(p.SrcMac, linkLayerAddress)
@@ -207,7 +207,7 @@ func (p *Packet) decodeIP(fullPayloadLength int) {
 	flagsfrags := binary.BigEndian.Uint16(pkt[6:8])
 	ip.Flags = uint8(flagsfrags >> 13)
 	ip.FragmentOffset = (flagsfrags & 0x1FFF)
-	ip.Ttl = pkt[8]
+	ip.TTL = pkt[8]
 	ip.Protocol = pkt[9]
 	ip.Checksum = binary.BigEndian.Uint16(pkt[10:12])
 	ip.SrcIP = pkt[12:16]

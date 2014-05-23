@@ -20,7 +20,7 @@ const (
 	TypeLLDP     = 0x88CC
 	TypeHomePlug = 0x88E1
 
-	ARPHRD_ETHER = 1
+	ARPHrdEther = 1
 )
 
 // Port from sf-pcap.c file.
@@ -32,60 +32,16 @@ const (
 	NsecTcpdumpMagic      = 0xa1b23c4d
 )
 
-// DLT* are the data link types. They can differ per platform.
-// See http://www.tcpdump.org/linktypes.html
-const (
-	DLTNULL     = C.DLT_NULL
-	DLTRAW      = C.DLT_RAW
-	DLTEN10MB   = C.DLT_EN10MB    // Ethernet (10Mb)
-	DLTEN3MB    = C.DLT_EN3MB     // Experimental Ethernet (3Mb)
-	DLTAX25     = C.DLT_AX25      // Amateur Radio AX.25
-	DLTPRONET   = C.DLT_PRONET    // Proteon ProNET Token Ring
-	DLTCHAOS    = C.DLT_CHAOS     // Chaos
-	DLTIEEE802  = C.DLT_IEEE802   // 802.5 Token Ring
-	DLTARCNET   = C.DLT_ARCNET    // ARCNET, with BSD-style header
-	DLTSLIP     = C.DLT_SLIP      // Serial Line IP
-	DLTPPP      = C.DLT_PPP       // Point-to-point Protocol
-	DLTFDDI     = C.DLT_FDDI      // FDDI
-	DLTLINUXSSL = C.DLT_LINUX_SLL // Linux cooked
-)
-
 const errbufSize = C.PCAP_ERRBUF_SIZE
 
 // LinkType constants according to pcap-linktype(7).
+// DLT* are the data link types. They can differ per platform.
+// See http://www.tcpdump.org/linktypes.html
 const (
-	LinkTypeNull      = DLTNULL
-	LinkTypeEthernet  = DLTEN10MB
-	LinkTypeTokenRing = DLTIEEE802
-
-	LinkTypeExpEthernet = DLTEN3MB /* 3Mb experimental Ethernet */
-	LinkTypeAX25        = DLTAX25
-	LinkTypePRONET      = DLTPRONET
-	LinkTypeCHAOS       = DLTCHAOS
-	LinkTypeARCNETBSD   = DLTARCNET /* BSD-style headers */
-	LinkTypeSLIP        = DLTSLIP
-	LinkTypePPP         = DLTPPP
-	LinkTypeFDDI        = DLTFDDI
-
-	LinkTypeARCNET         = 7
-	LinkTypeATMRFC1483     = 100
-	LinkTypeRAW            = 101
-	LinkTypePPPHDLC        = 50
-	LinkTypePPPETHER       = 51
-	LinkTypeCHDLC          = 104
-	LinkTypeIEEE80211      = 105
-	LinkTypeFRELAY         = 107
-	LinkTypeLOOP           = 108
-	LinkTypeLINUXSLL       = 113
-	LinkTypeLTALK          = 104
-	LinkTypePFLOG          = 117
-	LinkTypePRISMHeader    = 119
-	LinkTypeIPOverFC       = 122
-	LinkTypeSUNATM         = 123
-	LinkTypeIEEE80211Radio = 127
-	LinkTypeARCNETLinux    = 129
-	LinkTypeLinuxIRDA      = 144
-	LinkTypeLinuxLAPD      = 177
+	LinkTypeNull        = C.DLT_NULL
+	LinkTypeRaw         = C.DLT_RAW
+	LinkTypeEthernet    = C.DLT_EN10MB    // Ethernet (10Mb)
+	LinkTypeLinuxCooked = C.DLT_LINUX_SLL // Linux cooked
 )
 
 type addrHdr interface {
@@ -142,7 +98,7 @@ func (arp *ARPHdr) Len() int {
 	return int(8 + 2*arp.HwAddressSize + 2*arp.ProtAddressSize)
 }
 
-// IPHdr is the header of an IP packet.
+// IPHdr is the header of an IPv4 packet.
 type IPHdr struct {
 	Version        uint8
 	Ihl            uint8
@@ -151,7 +107,7 @@ type IPHdr struct {
 	ID             uint16
 	Flags          uint8
 	FragmentOffset uint16
-	Ttl            uint8
+	TTL            uint8
 	Protocol       uint8
 	Checksum       uint16
 	SrcIP          []byte
@@ -185,7 +141,6 @@ type TCPHdr struct {
 	Window        uint16
 	Checksum      uint16
 	Urgent        uint16
-	Data          []byte
 	PayloadLength int
 }
 
@@ -264,7 +219,6 @@ type ICMPHdr struct {
 	Checksum      uint16
 	ID            uint16
 	Seq           uint16
-	Data          []byte
 	PayloadLength int
 }
 

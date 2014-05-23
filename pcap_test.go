@@ -35,7 +35,7 @@ func testPcapHandle(t *testing.T, newHandle pcapNewHandleFunc) {
 	for pkt, _, _ := h.Next(); pkt != nil; pkt, _, _ = h.Next() {
 		pkt.Decode()
 		t.Logf("Packet:%s dataLen:%d", pkt, len(pkt.Payload))
-		pktsRecvd += 1
+		pktsRecvd++
 	}
 
 	if pktsRecvd != numPkts {
