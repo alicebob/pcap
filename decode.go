@@ -42,6 +42,7 @@ const (
 	LinkTypeRaw         = C.DLT_RAW
 	LinkTypeEthernet    = C.DLT_EN10MB    // Ethernet (10Mb)
 	LinkTypeLinuxCooked = C.DLT_LINUX_SLL // Linux cooked
+	LinkTypeNFLog       = C.DLT_NFLOG
 )
 
 type addrHdr interface {

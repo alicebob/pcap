@@ -29,7 +29,7 @@ type Packet struct {
 
 func supportedDatalink(id int) bool {
 	switch id {
-	case LinkTypeEthernet, LinkTypeLinuxCooked, LinkTypeRaw:
+	case LinkTypeEthernet, LinkTypeLinuxCooked, LinkTypeRaw, LinkTypeNFLog:
 		return true
 	default:
 		return false
@@ -41,14 +41,14 @@ func (p *Packet) Decode() {
 	p.Payload = p.Data
 	switch p.DatalinkType {
 	// Update supportedDatalink() if you add a type here
-	case C.DLT_EN10MB:
+	case LinkTypeEthernet:
 		// Ethernet
 		p.decodeEthernet()
 		return
-	case C.DLT_LINUX_SLL:
+	case LinkTypeLinuxCooked:
 		p.decodeLinuxCooked()
 		return
-	case C.DLT_RAW:
+	case LinkTypeRaw:
 		// RAW. So this is IP, but it can be either v4 or v6.
 		if len(p.Data) < 20 {
 			return
@@ -65,6 +65,9 @@ func (p *Packet) Decode() {
 			log.Printf("unknown raw packet format")
 			return
 		}
+	case LinkTypeNFLog:
+		p.decodeNFLog()
+		return
 	default:
 		log.Printf("unknown datalink type: %v", DatalinkValueToName(p.DatalinkType))
 		return
@@ -146,7 +149,7 @@ func (p *Packet) decodeLinuxCooked() {
 	p.handleEthernet(&sll)
 }
 
-// handleEthernet is the common code fot decodeEthernet and decodeLinuxCooked
+// handleEthernet is the common code for decodeEthernet and decodeLinuxCooked
 func (p *Packet) handleEthernet(eth *EthernetHdr) {
 	if eth.Type < 0x0600 {
 		// IEEE 802.3 usage: this is the frame length. We never want those.
@@ -170,6 +173,41 @@ func (p *Packet) handleEthernet(eth *EthernetHdr) {
 		// log.Printf("Src: %v\n", net.HardwareAddr(p.SrcMac).String())
 		// log.Printf("Dst: %v\n", net.HardwareAddr(p.DestMac).String())
 		// log.Printf("FullPayloadLength: %v\n", p.FullPayloadLength)
+	}
+}
+
+// decodeNFLog handles netfilter's NFLOG format.
+func (p *Packet) decodeNFLog() {
+	if len(p.Data) < 4 {
+		return
+	}
+	// NFLog messages are:
+	// - A general header of 4 bytes:
+	// <1byte: family><1byte: version><2byte: nflog group>
+	// - then groups of:
+	// <2byte:total length><2byte:header id><...content (length-4)><0..4(?) padding>
+	// We are only interested in the payload header (9).
+	family := uint8(p.Data[0])
+	// version := uint8(p.Data[1])
+	i := 4
+	for i < len(p.Data) {
+		headerLength := int(binary.LittleEndian.Uint16(p.Payload[i : i+2]))
+		headerID := int(binary.LittleEndian.Uint16(p.Payload[i+2 : i+4]))
+		if headerID == 9 {
+			p.Payload = p.Payload[i+4 : i+headerLength]
+			switch family {
+			case syscall.AF_INET: // IP. No idea where this is defined.
+				p.decodeIP(headerLength - 4)
+			case syscall.AF_INET6: // TypeIP6:
+				p.decodeIP6(headerLength - 4)
+			}
+			return
+		}
+		i += headerLength
+		// Align to 4 byte. (Might be 8 byte, no idea)
+		if i%4 != 0 {
+			i += i % 4
+		}
 	}
 }
 
