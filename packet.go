@@ -56,7 +56,7 @@ func (p *Packet) Decode() {
 		version := uint8(p.Data[0]) >> 4
 		switch version {
 		case 4:
-			p.decodeIP(int(p.Len))
+			p.decodeIP4(int(p.Len))
 			return
 		case 6:
 			p.decodeIP6(int(p.Len))
@@ -153,8 +153,8 @@ func (p *Packet) handleEthernet(eth *EthernetHdr) {
 		return
 	}
 	switch eth.Type {
-	case TypeIP:
-		p.decodeIP(eth.PayloadLength)
+	case TypeIP4:
+		p.decodeIP4(eth.PayloadLength)
 	case TypeIP6:
 		p.decodeIP6(eth.PayloadLength)
 	case TypeARP:
@@ -165,6 +165,8 @@ func (p *Packet) handleEthernet(eth *EthernetHdr) {
 		// Link Layer Discovery Protocol
 	case TypeHomePlug:
 		// HomePlug
+	case TypeWakeOnLan:
+		// WakeOnLan
 	default:
 		log.Printf("unknown protocol type for packet: %v", eth.Type)
 		// log.Printf("Src: %v\n", net.HardwareAddr(p.SrcMac).String())
@@ -208,7 +210,7 @@ func (p *Packet) decodeARP(fullPayloadLength int) {
 	// End of chain
 }
 
-func (p *Packet) decodeIP(fullPayloadLength int) {
+func (p *Packet) decodeIP4(fullPayloadLength int) {
 	if len(p.Payload) < 20 {
 		return
 	}
@@ -268,7 +270,7 @@ func (p *Packet) decodeIP(fullPayloadLength int) {
 		p.decodeICMP(ip.PayloadLength)
 	// No ICMPv6
 	case syscall.IPPROTO_IPIP:
-		p.decodeIP(ip.PayloadLength)
+		p.decodeIP4(ip.PayloadLength)
 	}
 }
 
@@ -410,7 +412,7 @@ SWITCH:
 	case syscall.IPPROTO_ICMPV6:
 		p.decodeICMPv6(ip6.PayloadLength)
 	case syscall.IPPROTO_IPIP:
-		p.decodeIP(ip6.PayloadLength)
+		p.decodeIP4(ip6.PayloadLength)
 	}
 }
 

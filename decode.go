@@ -13,12 +13,13 @@ import (
 
 // Type constants.
 const (
-	TypeIP       = 0x0800
-	TypeARP      = 0x0806
-	TypeIP6      = 0x86DD
-	TypeEAPOL    = 0x888E
-	TypeLLDP     = 0x88CC
-	TypeHomePlug = 0x88E1
+	TypeIP4       = 0x0800
+	TypeARP       = 0x0806
+	TypeWakeOnLan = 0x0842
+	TypeIP6       = 0x86DD
+	TypeEAPOL     = 0x888E
+	TypeLLDP      = 0x88CC
+	TypeHomePlug  = 0x88E1
 
 	ARPHrdEther = 1
 )
@@ -91,7 +92,7 @@ func (arp *ARPHdr) String() (s string) {
 	case 2:
 		s = "ARP Reply"
 	}
-	if arp.Addrtype == LinkTypeEthernet && arp.Protocol == TypeIP {
+	if arp.Addrtype == LinkTypeEthernet && arp.Protocol == TypeIP4 {
 		s = fmt.Sprintf("%012x (%s) > %012x (%s)",
 			decodemac(arp.SourceHwAddress), arp.SourceProtAddress,
 			decodemac(arp.DestHwAddress), arp.DestProtAddress)
